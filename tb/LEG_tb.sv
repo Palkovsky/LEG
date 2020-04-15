@@ -1,17 +1,15 @@
 module LEG_tb;
 	
 	reg r_clk;
-	wire w_led;
 
 	LEG l(
-		.i_clk(r_clk),
-		.o_led(w_led)
+		.i_clk(r_clk)
 	);
 	
 	// Initial register values
 	initial begin 
 		r_clk = 0;
-		#500000000 $finish;
+		#50 $finish;
    end 
 	
 	
