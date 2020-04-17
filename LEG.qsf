@@ -67,7 +67,10 @@ set_global_assignment -name SYSTEMVERILOG_FILE tb/fetch_tb.sv
 set_global_assignment -name EDA_TEST_BENCH_NAME fetch_tb -section_id eda_simulation
 set_global_assignment -name EDA_DESIGN_INSTANCE_NAME NA -section_id fetch_tb
 set_global_assignment -name EDA_TEST_BENCH_MODULE_NAME fetch_tb -section_id fetch_tb
-set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
+set_global_assignment -name SYSTEMVERILOG_FILE src/execute.sv
 set_global_assignment -name EDA_TEST_BENCH_FILE tb/LEG_tb.sv -section_id LEG_tb
 set_global_assignment -name EDA_TEST_BENCH_FILE tb/fetch_tb.sv -section_id fetch_tb
 set_global_assignment -name EDA_TEST_BENCH_FILE src/fetch.sv -section_id fetch_tb
+set_global_assignment -name EDA_TEST_BENCH_FILE src/execute.sv -section_id fetch_tb
+set_global_assignment -name EDA_TEST_BENCH_FILE src/regbank.sv -section_id fetch_tb
+set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

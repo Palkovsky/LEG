@@ -11,15 +11,16 @@ module fetch #(
 	// Program Counter
 	input[ADDR_WIDTH-1:0] i_pc,
 	// Memory interface
-	input[7:0]             i_mem_data,
+	input[DATA_WIDTH-1:0]  i_mem_data,
 	output[ADDR_WIDTH-1:0] o_mem_addr,
 	output                 o_mem_write,
-	// Output instructions
+	// Inpust nstructions
+	input                  i_inst_ack,
 	output                 o_inst_ready, // pulse
    output[INST_WIDTH-1:0] o_inst
 );
 	
-	reg[INST_WIDTH-1:0] inst_buff = '0;
+	reg[INST_WIDTH-1:0] inst_buff  = '0;
 	reg[INST_BYTES-1:0] inst_count = '0;
 	reg                 inst_ready = 0;
 	
@@ -28,21 +29,21 @@ module fetch #(
 	
 	// Pulse when instruction ready
 	assign o_inst_ready = inst_ready;
-	assign o_inst = (o_inst_ready) ? inst_buff : 0;
+	assign o_inst       = (o_inst_ready) ? inst_buff : 0;
 	
-	// Read-only
+	// Memory signals
 	assign o_mem_addr  = i_pc+inst_count;
 	assign o_mem_write = 0;
 	
 	always @(posedge i_clk) begin
-		inst_buff[buff_idx-:DATA_WIDTH] <= i_mem_data;
-		if (inst_count+1 == INST_BYTES) begin
-			inst_count <= 0;
+		if(inst_ready && !i_inst_ack) begin
+			// Pipeline stall
 			inst_ready <= 1;
-		end 
+		end
 		else begin
-			inst_count <= inst_count+1;
-			inst_ready <= 0;
+			inst_buff[buff_idx-:DATA_WIDTH] <= i_mem_data;
+			inst_count <= (inst_count+1 == INST_BYTES) ? 0 : inst_count+1;
+			inst_ready <= (inst_count+1 == INST_BYTES);
 		end
 	end
 endmodule
