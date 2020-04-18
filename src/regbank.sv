@@ -1,6 +1,6 @@
 module regbank #(
- parameter ADDR_WIDTH=12,
- parameter WORD_WIDTH=32,
+ parameter ADDR_WIDTH,
+ parameter WORD_WIDTH,
  parameter SIZE=1<<ADDR_WIDTH
 )(
   input                  i_clk,

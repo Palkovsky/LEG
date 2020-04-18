@@ -1,6 +1,6 @@
 module bram #(
-	DATA_WIDTH=8,
-	ADDR_WIDTH=12,
+	DATA_WIDTH,
+	ADDR_WIDTH,
 	RAM_SIZE=1<<ADDR_WIDTH
 )(
    input[DATA_WIDTH-1:0] i_data_a,
