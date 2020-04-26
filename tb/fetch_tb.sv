@@ -15,13 +15,11 @@ module fetch_tb;
 	wire[ADDR_WIDTH-1:0] fetch_next_pc;
 	wire[ADDR_WIDTH-1:0] decode_next_pc;
 	
-	always @(posedge clk) begin
-		pc <= (decode_is_jmp) ? decode_next_pc : fetch_next_pc;
-	end
+	wire mult_cycle_inst;
 	
 	wire fetch_stall, decode_stall, execute_stall;
-	assign fetch_stall = 0;
-	assign decode_stall = 0;
+	assign fetch_stall = mult_cycle_inst;
+	assign decode_stall = mult_cycle_inst;
 	assign execute_stall = 0;
 	
 	wire fetch_flush, decode_flush, execute_flush;
@@ -29,7 +27,18 @@ module fetch_tb;
 	assign decode_flush = decode_is_jmp;
 	assign execute_flush = 0;
 	
-	wire fetch_ready, decode_ready;
+	
+	always @(posedge clk) begin
+		// If fetch stage is stalling, don't use incremented PC.
+		if(!fetch_stall) begin
+			pc <= fetch_next_pc;
+		end
+		
+		// If current instruction in decode stage is jump, overwrite PC.
+		if(decode_is_jmp) begin
+			pc <= decode_next_pc;
+		end
+	end
 	
 fetch #(
 	.ADDR_WIDTH(ADDR_WIDTH), .WORD_WIDTH(WORD_WIDTH)
@@ -37,9 +46,7 @@ fetch #(
 	.i_clk(clk),
 	.i_flush(fetch_flush),
 	.i_stall(fetch_stall),
-	
-	.o_ready(fetch_ready),
-	
+		
 	.i_pc(pc),
 	.i_mem_data(memin),
 	.o_mem_addr(addr),
@@ -60,10 +67,7 @@ decode #(
 	.i_clk(clk), 
 	.i_flush(decode_flush),
 	.i_stall(decode_stall),
-	
-	.i_ready(fetch_ready),
-	.o_ready(decode_ready),
-	
+		
 	// Interface to fetch stage
 	.i_inst(inst),
 	
@@ -90,12 +94,12 @@ execute #(
 	.i_clk(clk),
 	.i_flush(execute_flush),
 	.i_stall(execute_stall),
-	
-	.i_ready(decode_ready),
-	
+		
 	.i_opcode(opcode),
 	.i_operand1(operand1),
 	.i_operand2(operand2),
+	
+	.o_mult_cycle(mult_cycle_inst),
 	
 	.o_opcode(e_opcode),
 	.o_operand1(e_operand1),

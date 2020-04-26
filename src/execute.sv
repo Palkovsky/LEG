@@ -5,18 +5,20 @@ module execute #(
 	input  i_flush,
 	input  i_stall,
 	
-	input  i_ready,
-	
+	// Decode stage interface
 	input[3:0] i_opcode,
 	input[5:0] i_operand1,
 	input[5:0] i_operand2,
 	
+	// Inform pipeline about multi-cycle instruction
+	output o_mult_cycle,
+	
+	// Debug
 	output[3:0] o_opcode,
 	output[5:0] o_operand1,
 	output[5:0] o_operand2,
 	output[WORD_WIDTH-1:0] o_r2,
 	output[WORD_WIDTH-1:0] o_r5,
-	
 	output reg[WORD_WIDTH-1:0] o_test
 );
 	parameter REGBANK_ADDR_WIDTH = 10;
@@ -46,6 +48,10 @@ module execute #(
 	assign o_r2 = regbank_value[2];
 	assign o_r5 = regbank_value[5];
 	
+	// Let's assume for testing that ADD instruction takes multiple cycles
+	reg[3:0]  r_mult_count = 0;
+	assign    o_mult_cycle = (r_mult_count != 0);
+	
 	// Write/read signals have to be set in comb block, to avoid two-clock delay.
 	always_comb begin
 		regbank_write_trig = (opcode == 'hF || opcode == 'hD);
@@ -66,15 +72,21 @@ module execute #(
 	end
 			
 	always @(posedge i_clk) begin
+		r_mult_count <= (o_mult_cycle) ? r_mult_count - 1 : 0;
+		
 		if(i_flush) begin
 			{opcode, operand1, operand2} <= 0;
 		end
-		else if(!i_stall && i_ready) begin
+		else if(!i_stall && !o_mult_cycle) begin
 			// Load next stage
-			if(i_ready) begin
-				{opcode, operand1, operand2} <= {i_opcode, i_operand1, i_operand2};
-			end
+			{opcode, operand1, operand2} <= {i_opcode, i_operand1, i_operand2};
 			
+			// Assume that 'hB instruction takes 3 cycles.
+			case(i_opcode)
+				'hB: r_mult_count <= 3;
+			endcase
+			
+			// Seq execute of current instruction
 			case(opcode)
 				'hB: o_test <= regbank_value[operand1];
 			endcase

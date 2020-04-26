@@ -5,9 +5,7 @@ module fetch #(
 	input i_clk,
 	input i_flush,
 	input i_stall,
-	
-	output reg o_ready,
-	
+		
 	// Program Counter
 	input[ADDR_WIDTH-1:0]  i_pc,
 	
@@ -32,12 +30,10 @@ module fetch #(
 	assign o_next_pc = i_pc + WORD_WIDTH/8;
 	
 	always @(posedge i_clk) begin
-		o_ready <= 0;
 		if(i_flush) begin
 			inst <= 0;
 		end
 		else if (!i_stall) begin
-			o_ready <= 1;
 			inst <= i_mem_data;
 		end
 	end

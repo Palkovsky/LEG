@@ -5,10 +5,7 @@ module decode #(
 	input  i_clk,
 	input  i_flush,
 	input  i_stall,
-	
-	input  i_ready,
-	output reg o_ready,
-	
+		
 	// Interface to fetch stage
 	input[WORD_WIDTH-1:0] i_inst,
 	
@@ -36,13 +33,11 @@ module decode #(
 	assign o_next_pc = o_operand_full;
 		
 	always @(posedge i_clk) begin
-		o_ready <= 0;
 		if(i_flush) begin
 			inst <= 0;
 		end
-		else if (!i_stall && i_ready) begin
+		else if (!i_stall) begin
 			inst <= i_inst;
-			o_ready <= 1;
 		end
 	end
 endmodule
