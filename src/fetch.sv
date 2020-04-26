@@ -1,60 +1,44 @@
 module fetch #(
-	// Address bus width
 	parameter ADDR_WIDTH,
-	// Memory bus width
-	parameter DATA_WIDTH,
-	// How many bytes per instruction
-	parameter INST_BYTES,
-	parameter INST_WIDTH=INST_BYTES*DATA_WIDTH
+	parameter WORD_WIDTH
 )(
 	input i_clk,
-	input i_flush,	
+	input i_flush,
+	input i_stall,
+	
+	output reg o_ready,
 	
 	// Program Counter
 	input[ADDR_WIDTH-1:0]  i_pc,
 	
 	// Memory interface
-	input[DATA_WIDTH-1:0]  i_mem_data,
+	input[WORD_WIDTH-1:0]  i_mem_data,
 	output[ADDR_WIDTH-1:0] o_mem_addr,
 	output                 o_mem_write,
 	
-	// Next stage interface
-	input                  i_inst_ack,
-	output                 o_inst_ready, // pulse
-   output[INST_WIDTH-1:0] o_inst
+	// PC interface
+	output[ADDR_WIDTH-1:0] o_next_pc,
+	output[WORD_WIDTH-1:0] o_inst
 );
-	
-	reg[INST_WIDTH-1:0] inst_buff  = 0;
-	reg[INST_BYTES-1:0] inst_count = 0;
-	reg                 inst_ready = 0;
-	
-	wire[INST_WIDTH-1:0] buff_idx;
-	assign buff_idx = (INST_BYTES-inst_count)*DATA_WIDTH-1;
-	
-	// Pulse when instruction ready
-	assign o_inst_ready = inst_ready;
-	assign o_inst       = (o_inst_ready) ? inst_buff : 0;
+	// Instruction buffer and rediness state
+	reg[WORD_WIDTH-1:0] inst = 0;		
+	assign o_inst            = inst;
 	
 	// Memory signals
-	assign o_mem_addr  = i_pc+inst_count;
+	assign o_mem_addr  = i_pc;
 	assign o_mem_write = 0;
 	
+	// Next PC as seen by fetch stage. Might differ if JMP instruction in decode.
+	assign o_next_pc = i_pc + WORD_WIDTH/8;
+	
 	always @(posedge i_clk) begin
+		o_ready <= 0;
 		if(i_flush) begin
-			// Pipeline flush
-			inst_ready <= 0;
-			inst_count <= 0;
-		end else
-		begin
-			if(inst_ready && !i_inst_ack) begin
-				// Pipeline stall
-				inst_ready <= 1;
-			end
-			else begin
-				inst_buff[buff_idx-:DATA_WIDTH] <= i_mem_data;
-				inst_count <= (inst_count+1 == INST_BYTES) ? 0 : inst_count+1;
-				inst_ready <= (inst_count+1 == INST_BYTES);
-			end
+			inst <= 0;
+		end
+		else if (!i_stall) begin
+			o_ready <= 1;
+			inst <= i_mem_data;
 		end
 	end
 endmodule
