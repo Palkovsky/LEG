@@ -1,1 +1,10 @@
 * LEG
+* Testbench
+** Dependencies
+   #+begin_src bash
+pip install -r requirements.txt
+   #+end_src
+** Running
+  #+begin_src bash
+python test.py
+  #+end_src

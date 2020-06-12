@@ -1,40 +1,37 @@
-module fetch #(
-	parameter ADDR_WIDTH,
-	parameter WORD_WIDTH
-)(
-	input i_clk,
-	input i_flush,
-	input i_stall,
-		
-	// Program Counter
-	input[ADDR_WIDTH-1:0]  i_pc,
-	
-	// Memory interface
-	input[WORD_WIDTH-1:0]  i_mem_data,
-	output[ADDR_WIDTH-1:0] o_mem_addr,
-	output                 o_mem_write,
-	
-	// PC interface
-	output[ADDR_WIDTH-1:0] o_next_pc,
-	output[WORD_WIDTH-1:0] o_inst
+`include "common.svh"
+
+`define INST_BYTES `INST_WIDTH/8
+
+module fetch (
+	input                        i_clk,
+  input                        i_rst,
+  input [`WORD_WIDTH-1:0]      i_pc,
+
+  input [`DATA_WIDTH-1:0]      i_mem_data,
+  output reg [`ADDR_WIDTH-1:0] o_mem_addr,
+  output reg                   o_mem_write = 0,
+
+  output reg [`INST_WIDTH-1:0] o_inst = 0,
+	output reg                   o_ready = 0
 );
-	// Instruction buffer and rediness state
-	reg[WORD_WIDTH-1:0] inst = 0;		
-	assign o_inst            = inst;
-	
-	// Memory signals
-	assign o_mem_addr  = i_pc;
-	assign o_mem_write = 0;
-	
-	// Next PC as seen by fetch stage. Might differ if JMP instruction in decode.
-	assign o_next_pc = i_pc + WORD_WIDTH/8;
-	
-	always @(posedge i_clk) begin
-		if(i_flush) begin
-			inst <= 0;
-		end
-		else if (!i_stall) begin
-			inst <= i_mem_data;
-		end
-	end
+   reg [5:0]                   counter = 0;
+   assign o_mem_addr = i_pc[`ADDR_WIDTH-1:0] + counter;
+
+   always @(posedge i_clk) begin
+      o_ready <= 0;
+      counter <= counter+1;
+
+      if (i_rst) begin
+         o_inst <= 0;
+         counter <= 0;
+      end
+      else begin
+         o_inst[((`INST_BYTES-counter)*8-1) -: 8] <= i_mem_data;
+         // When instruction is ready.
+         if (counter+1 == `INST_BYTES) begin
+            o_ready <= 1;
+            counter <= 0;
+         end
+      end
+   end
 endmodule

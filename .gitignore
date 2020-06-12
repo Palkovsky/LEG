@@ -36,3 +36,6 @@ timing
 *.tcl
 *.sld
 *.txt
+
+# Ignore vunit files
+vunit_out/

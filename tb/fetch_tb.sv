@@ -1,137 +1,103 @@
-`timescale 1ns/1ns
+`include "vunit_defines.svh"
+`include "../src/common.svh"
+
 module fetch_tb;
-	parameter ADDR_WIDTH=12;
-	parameter WORD_WIDTH=32;
-	
-	reg clk = 0;
-	reg[WORD_WIDTH-1:0] memin = 0;
-	wire[ADDR_WIDTH-1:0] addr;
-	wire[WORD_WIDTH-1:0] inst;
-	wire[WORD_WIDTH-1:0] out;
-			
-	// PC update logic
-	reg[ADDR_WIDTH-1:0]  pc = 0;
-	wire                 decode_is_jmp;
-	wire[ADDR_WIDTH-1:0] fetch_next_pc;
-	wire[ADDR_WIDTH-1:0] decode_next_pc;
-	
-	wire mult_cycle_inst;
-	
-	wire fetch_stall, decode_stall, execute_stall;
-	assign fetch_stall = mult_cycle_inst;
-	assign decode_stall = mult_cycle_inst;
-	assign execute_stall = 0;
-	
-	wire fetch_flush, decode_flush, execute_flush;
-	assign fetch_flush = decode_is_jmp;
-	assign decode_flush = decode_is_jmp;
-	assign execute_flush = 0;
-	
-	
-	always @(posedge clk) begin
-		// If fetch stage is stalling, don't use incremented PC.
-		if(!fetch_stall) begin
-			pc <= fetch_next_pc;
-		end
-		
-		// If current instruction in decode stage is jump, overwrite PC.
-		if(decode_is_jmp) begin
-			pc <= decode_next_pc;
-		end
-	end
-	
-fetch #(
-	.ADDR_WIDTH(ADDR_WIDTH), .WORD_WIDTH(WORD_WIDTH)
-) inst_fetch (
-	.i_clk(clk),
-	.i_flush(fetch_flush),
-	.i_stall(fetch_stall),
-		
-	.i_pc(pc),
-	.i_mem_data(memin),
-	.o_mem_addr(addr),
-	.o_mem_write(),
-	
-	.o_next_pc(fetch_next_pc),
-	.o_inst(inst)
-);
+   localparam integer clk_period = 10;
+   reg                clk = 0;
+   reg                rst = 0;
 
-wire[3:0]  opcode;
-wire[11:0] operand_full;
-wire[5:0]  operand1;
-wire[5:0]  operand2;
+   reg [`WORD_WIDTH-1:0] pc = 0;
 
-decode #(
-	.ADDR_WIDTH(ADDR_WIDTH), .WORD_WIDTH(WORD_WIDTH)
-) inst_decode (
-	.i_clk(clk), 
-	.i_flush(decode_flush),
-	.i_stall(decode_stall),
-		
-	// Interface to fetch stage
-	.i_inst(inst),
-	
-	// Interface to execute stage
-	.o_opcode(opcode),
-	.o_operand_full(operand_full),
-	.o_operand1(operand1),
-	.o_operand2(operand2),
-	
-	// Jumping logic
-	.o_is_jmp(decode_is_jmp),
-	.o_next_pc(decode_next_pc)
-);
+   reg [`DATA_WIDTH-1:0] data;
+   wire [`ADDR_WIDTH-1:0] addr;
+   wire                   wr;
 
-wire[3:0]  e_opcode;
-wire[5:0]  e_operand1;
-wire[5:0]  e_operand2;
-wire[WORD_WIDTH-1:0]  e_r2;
-wire[WORD_WIDTH-1:0]  e_r5;
+   wire [`INST_WIDTH-1:0] inst;
+   wire ready;
 
-execute #(
-	.WORD_WIDTH(WORD_WIDTH)
-) inst_execute (
-	.i_clk(clk),
-	.i_flush(execute_flush),
-	.i_stall(execute_stall),
-		
-	.i_opcode(opcode),
-	.i_operand1(operand1),
-	.i_operand2(operand2),
-	
-	.o_mult_cycle(mult_cycle_inst),
-	
-	.o_opcode(e_opcode),
-	.o_operand1(e_operand1),
-	.o_operand2(e_operand2),
-	.o_r2(e_r2),
-	.o_r5(e_r5),
-	
-	.o_test(out)
-);
-	
-	// Simulate memory
-	always_comb begin
-		case(addr)
-			// LD r5, 2
-			0:  memin  = 'hF1420000;
-			// LD r2, 8
-			4:  memin  = 'hF0880000;
-			// ADD r5, r2
-			8:  memin  = 'hD1420000;
-			// OUT r5
-			12: memin  = 'hB1400000;
-			// JMP 0x008
-			16: memin  = 'h90080000;
-			// LD r5, 2 <- This shouldn't execute.
-			20: memin  = 'hF1420000;
-			default: memin = 'h00000000;
-		endcase
-	end
-	
-	initial begin
-		#190 $finish;
-	end
+   // Simulate memory.
+   always_comb begin
+      case (addr)
+        0: data = 'hAA;
+        1: data = 'hBB;
+        2: data = 'hCC;
+        3: data = 'hDD;
+        default: data = 0;
+      endcase
+   end
 
-	always #2 clk <= ~clk;
+   `TEST_SUITE begin
+      `TEST_CASE("initial_state") begin
+         #1
+         `CHECK_EQUAL(wr, 0);
+         `CHECK_EQUAL(inst, 0);
+         `CHECK_EQUAL(ready, 0);
+      end
+      `TEST_CASE("one_cycle") begin
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'hAA000000);
+         `CHECK_EQUAL(ready, 0);
+      end
+      `TEST_CASE("two_cycles") begin
+         @(posedge clk);
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         `CHECK_EQUAL(ready, 0);
+      end
+      `TEST_CASE("three_cycles") begin
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'hAABBCC00);
+         `CHECK_EQUAL(ready, 0);
+      end
+      `TEST_CASE("three_cycles_rst") begin
+         @(posedge clk);
+         @(posedge clk);
+         rst <= 1;
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'h00);
+         `CHECK_EQUAL(ready, 0);
+      end
+      `TEST_CASE("four_cycles") begin
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'hAABBCCDD);
+         `CHECK_EQUAL(ready, 1);
+      end
+      `TEST_CASE("five_cycles") begin
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         @(posedge clk);
+         pc <= pc + `INST_WIDTH/8;
+         @(posedge clk);
+         #1
+         `CHECK_EQUAL(inst, 'h00BBCCDD);
+         `CHECK_EQUAL(ready, 0);
+      end
+   end;
+
+   always begin
+      #(clk_period/2 * 1ns);
+      clk = !clk;
+   end
+
+   fetch fetch (
+                .i_clk(clk),
+                .i_rst(rst),
+                .i_pc(pc),
+                .i_mem_data(data),
+                .o_mem_addr(addr),
+                .o_mem_write(wr),
+                .o_inst(inst),
+                .o_ready(ready)
+                );
 endmodule
