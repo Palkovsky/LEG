@@ -38,10 +38,14 @@ module execute (
    wire [11:0]                w_I = i_inst[31:20];
    wire [11:0]                w_S = { i_inst[31:25], i_inst[11:7] };
    wire [11:0]                w_B = { i_inst[31], i_inst[7], i_inst[30:25], i_inst[11:8] };
+   wire [12:0]                w_B_shl = { w_B, 1'b0 };
    wire [19:0]                w_U = i_inst[31:12];
-   wire [19:0]                w_J = { i_inst[20], i_inst[19:12], i_inst[20], i_inst[30:21] };
+   wire [19:0]                w_J = { i_inst[31], i_inst[19:12], i_inst[20], i_inst[30:21] };
+   wire [20:0]                w_J_shl = { w_J, 1'b0 };
    // Sign extended immediates
    wire [31:0]                w_I_se = { {20{w_I[11]}}, w_I };
+   wire [31:0]                w_S_se = { {20{w_S[11]}}, w_S };
+   wire [31:0]                w_B_se = { {19{w_B[11]}}, w_B, 1'b0 };
    wire [31:0]                w_J_se = { {11{w_J[19]}}, w_J, 1'b0 };
 
    // 32 scalar registers
@@ -69,6 +73,9 @@ module execute (
    reg [2:0]                  w_bytes_to_transfer;
    reg                        w_ld_unsigned;
    reg [2:0]                  r_bytes_transfered = 0;
+   wire [4:0]                 w_transfer_chunk;
+
+   assign w_transfer_chunk  = (w_bytes_to_transfer-r_bytes_transfered)*8-1;
 
    task LOAD_SEQ();
       r_bytes_transfered <= r_bytes_transfered+1;
@@ -82,12 +89,11 @@ module execute (
          endcase
       end
       // Copy to register
-      r_X[w_rd][(w_bytes_to_transfer-r_bytes_transfered)*8-1 -: 8] <= i_mem_data;
+      r_X[w_rd][w_transfer_chunk -: 8] <= i_mem_data;
    endtask
 
    task STORE_SEQ();
       r_bytes_transfered <= r_bytes_transfered+1;
-      // If all transfered
       if(r_bytes_transfered+1 == w_bytes_to_transfer)
          r_bytes_transfered <= 0;
    endtask
@@ -97,14 +103,14 @@ module execute (
       if (w_opcode == `STORE) begin
          o_mem_write = 1;
          o_mem_addr = r_X[w_rs1] + w_S + r_bytes_transfered;
-         o_mem_data = r_X[w_rs2][((r_bytes_transfered+1)*8-1) -: 8];
+         o_mem_data = r_X[w_rs2][w_transfer_chunk -: 8];
          w_ld_unsigned = 0;
          case (w_funct3)
            `SB: w_bytes_to_transfer = 1;
            `SH: w_bytes_to_transfer = 2;
            `SW: w_bytes_to_transfer = 4;
            default: w_bytes_to_transfer = 0;
-         endcase // case (w_funct3)
+         endcase
       end
       else if (w_opcode == `LOAD) begin
          o_mem_write = 0;
@@ -135,7 +141,7 @@ module execute (
         // ADDI adds the sign-extended 12-bit immediate to register rs1. Arithmetic overflow is ignored and
         // the result is simply the low XLEN bits of the result. ADDI rd, rs1, 0 is used to implement the MV
         // rd, rs1 assembler pseudo-instruction.
-        `ADDI: r_X[w_rd] <= r_X[w_rs1] + w_I_se;
+        `ADDI: r_X[w_rd] <= r_X[w_rs1] + w_I;
         // SLTI (set less than immediate) places the value 1 in register rd if register rs1 is less than
         // the signextended immediate when both are treated as signed numbers, else 0 is written to rd.
         `SLTI: r_X[w_rd] <= ($signed(r_X[w_rs1]) < $signed(w_I_se)) ? 1 : 0;
@@ -218,7 +224,7 @@ module execute (
              // SRL
              7'b0000000: r_X[w_rd] <= r_X[w_rs1] >> r_X[w_rs2];
              // SRA
-             7'b0100000: r_X[w_rd] <= r_X[w_rs1] >>> r_X[w_rs2];
+             7'b0100000: r_X[w_rd] <= $signed(r_X[w_rs1]) >>> r_X[w_rs2];
              default: ; // Invalid instruction.
            endcase
         end
@@ -232,7 +238,7 @@ module execute (
    always_comb begin
       case (w_opcode)
         `JAL: begin
-           o_new_pc = i_pc + w_J_se;
+           o_new_pc = i_pc + w_J_shl;
            o_pc_change = 1;
         end
         `JALR: begin
@@ -243,27 +249,27 @@ module execute (
            o_pc_change = 0;
            case (w_funct3)
              `BEQ: if (r_X[w_rs1] == r_X[w_rs2]) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              `BNE: if (r_X[w_rs1] != r_X[w_rs2]) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              `BLT: if ($signed(r_X[w_rs1]) < $signed(r_X[w_rs2])) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              `BLTU: if (r_X[w_rs1] < r_X[w_rs2]) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              `BGE: if ($signed(r_X[w_rs1]) > $signed(r_X[w_rs2])) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              `BGEU: if (r_X[w_rs1] > r_X[w_rs2]) begin
-                o_new_pc = i_pc + w_B;
+                o_new_pc = i_pc + w_B_shl;
                 o_pc_change = 1;
              end
              default: ; // Invalid instruction

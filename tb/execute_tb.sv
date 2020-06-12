@@ -13,9 +13,9 @@ module execute_tb;
 
    reg [31:0]  inst;
 
-   wire [31:0] pc;
+   reg [31:0]  pc;
    wire        pc_change;
-   wire [31:0] new_pc;
+   wire [31:0] pc_new;
    wire        ready;
 
    wire [31:0] X[0:31];
@@ -41,8 +41,8 @@ module execute_tb;
       input [2:0] funct3;
       input [6:0] funct7;
       input [4:0] rd;
-      input [4:0] rs2;
       input [4:0] rs1;
+      input [4:0] rs2;
       R = { funct7, rs2, rs1, funct3, rd, opcode };
    endfunction
    function [31:0] I;
@@ -57,8 +57,8 @@ module execute_tb;
       input [6:0]  opcode;
       input [2:0]  funct3;
       input [4:0]  rs1;
-      input [4:0]  rs2;
       input [11:0] imm;
+      input [4:0]  rs2;
       S = { imm[11:5], rs2, rs1, funct3, imm[4:0], opcode };
    endfunction
    function [31:0] B;
@@ -95,7 +95,39 @@ module execute_tb;
       input [4:0]  rs1;
       input [19:0] imm;
       ADDI = I(`OP_IMM, `ADDI, rd, rs1, imm);
-   endfunction // ADDI
+   endfunction
+   function [31:0] BRANCH;
+      input [4:0]  rs1;
+      input string ty;
+      input [4:0]  rs2;
+      input [11:0] imm;
+      case (ty)
+        "==": BRANCH = B(`BRANCH, `BEQ, rs1, rs2, imm);
+        "!=": BRANCH = B(`BRANCH, `BNE, rs1, rs2, imm);
+        "<<": BRANCH = B(`BRANCH, `BLT, rs1, rs2, imm);
+        "<":  BRANCH = B(`BRANCH, `BLTU, rs1, rs2, imm);
+        ">>": BRANCH = B(`BRANCH, `BGE, rs1, rs2, imm);
+        ">":  BRANCH = B(`BRANCH, `BGEU, rs1, rs2, imm);
+      endcase
+   endfunction
+   function [31:0] REG_OP;
+      input [4:0]  rd;
+      input [4:0]  rs1;
+      input string ty;
+      input [4:0]  rs2;
+      case (ty)
+        "+": REG_OP    = R(`OP_REG, `ADD, 0, rd, rs1, rs2);
+        "-": REG_OP    = R(`OP_REG, `SUB, {2'b01, 5'b0}, rd, rs1, rs2);
+        "|": REG_OP    = R(`OP_REG, `OR, 0, rd, rs1, rs2);
+        "^": REG_OP    = R(`OP_REG, `XOR, 0, rd, rs1, rs2);
+        "&": REG_OP    = R(`OP_REG, `AND, 0, rd, rs1, rs2);
+        "SLT": REG_OP  = R(`OP_REG, `SLT, 0, rd, rs1, rs2);
+        "SLTU": REG_OP = R(`OP_REG, `SLTU, 0, rd, rs1, rs2);
+        "<<": REG_OP  = R(`OP_REG, `SLL, 0, rd, rs1, rs2);
+        ">>": REG_OP  = R(`OP_REG, `SRL, 0, rd, rs1, rs2);
+        ">>>": REG_OP  = R(`OP_REG, `SRA, {2'b01, 5'b0}, rd, rs1, rs2);
+      endcase
+   endfunction
 
    task next_cycle();
       @(posedge clk);
@@ -103,10 +135,10 @@ module execute_tb;
    endtask
 
    // Sets register value
-   task SET(input [4:0] rd, input [31:0] value);
+   task SETREG(input [4:0] rd, input [31:0] value);
       inst <= LUI(rd, value[31:12]);
       next_cycle();
-      inst <= ADDI(rd, 0, value[11:0]);
+      inst <= ADDI(rd, rd, value[11:0]);
       next_cycle();
    endtask
 
@@ -117,31 +149,336 @@ module execute_tb;
          rst <= 0;
          `CHECK_EQUAL(ready, 1);
       end
-      `TEST_CASE("SET_TASK") begin
-         SET(2, -1);
-         SET(6, 7);
-         `CHECK_EQUAL(X[2], -1);
+      `TEST_CASE("SETREG_TASK") begin
+         SETREG(2, 'hFFFFFFFF);
+         SETREG(6, 7);
+         SETREG(7, 'h11223344);
+         `CHECK_EQUAL(X[7], 'h11223344);
+         `CHECK_EQUAL(X[2], 'hFFFFFFFF);
          `CHECK_EQUAL(X[6], 7);
       end
+      `TEST_CASE("ADD") begin
+         // ADD x3, x1, x2
+         SETREG(1, 500);
+         SETREG(2, 300);
+         inst <= REG_OP(3, 1, "+", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 800);
+         // Test overflow
+         SETREG(1, 'hFFFFFFFE);
+         SETREG(2, 2);
+         inst <= REG_OP(3, 1, "+", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 0);
+      end
+      `TEST_CASE("SUB") begin
+         // SUB x3, x1, x2
+         SETREG(1, 500);
+         SETREG(2, 300);
+         inst <= REG_OP(3, 1, "-", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 200);
+         // Test overflow
+         SETREG(1, 0);
+         SETREG(2, 2);
+         inst <= REG_OP(3, 1, "-", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'hFFFFFFFE);
+      end
+      `TEST_CASE("SLT") begin
+         SETREG(1, 3);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, "SLT", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 1);
+
+         next_cycle();
+         inst <= REG_OP(3, 2, "SLT", 1);
+         `CHECK_EQUAL(X[3], 1);
+
+         // Signed boundary
+         SETREG(1, 'h80000000);
+         SETREG(2, 'h7FFFFFFF);
+         inst <= REG_OP(3, 1, "SLT", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 1);
+      end
+      `TEST_CASE("SLTU") begin
+         SETREG(1, 3);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, "SLTU", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 1);
+
+         next_cycle();
+         inst <= REG_OP(3, 2, "SLTU", 1);
+         `CHECK_EQUAL(X[3], 1);
+
+         // Signed boundary
+         SETREG(1, 'h80000000);
+         SETREG(2, 'h7FFFFFFF);
+         inst <= REG_OP(3, 1, "SLTU", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 0);
+      end
+      `TEST_CASE("SLL") begin
+         SETREG(1, 'hFFFFFFFF);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, "<<", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'hFFFFFFF0);
+
+         inst <= REG_OP(3, 3, "<<", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'hFFFFFF00);
+      end
+      `TEST_CASE("SRL") begin
+         SETREG(1, 'hFFFFFFFF);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, ">>", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'h0FFFFFFF);
+
+         inst <= REG_OP(3, 3, ">>", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'h00FFFFFF);
+      end
+      `TEST_CASE("SRA") begin
+         SETREG(1, 'hFFFFFFFF);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, ">>>", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'hFFFFFFFF);
+
+         SETREG(1, 'h0FFFFFFF);
+         SETREG(2, 4);
+         inst <= REG_OP(3, 1, ">>>", 2);
+         next_cycle();
+         `CHECK_EQUAL(X[3], 'h00FFFFFF);
+      end
       `TEST_CASE("ADDI") begin
-         // ADDI x1, x0, -1366
-         inst <= I(`OP_IMM, `ADDI, 1, 0, -1366);
+         // ADDI x1, x0, -500
+         inst <= I(`OP_IMM, `ADDI, 1, 0, -500);
          next_cycle();
          `CHECK_EQUAL(ready, 1);
-         `CHECK_EQUAL(X[1], -1366);
+         `CHECK_EQUAL(X[1], 4096-500);
          inst <= I(`OP_IMM, `ADDI, 1, 0, 10);
          next_cycle();
          `CHECK_EQUAL(ready, 1);
          `CHECK_EQUAL(X[1], 10);
       end
+      `TEST_CASE("BEQ") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, "==", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+
+         SETREG(6, 2);
+         inst <= BRANCH(2, "==", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+      end
+      `TEST_CASE("BNE") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, "!=", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+
+         SETREG(6, 2);
+         inst <= BRANCH(2, "!=", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+      end
+      `TEST_CASE("BLT") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, "<<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+
+         SETREG(6, 2);
+         inst <= BRANCH(2, "<<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+
+         // Signed boundary
+         SETREG(2, 'h80000000);
+         SETREG(6, 'h7FFFFFFF);
+         inst <= BRANCH(2, "<<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+      end
+      `TEST_CASE("BLTU") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, "<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+
+         SETREG(6, 2);
+         inst <= BRANCH(2, "<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+
+         // Signed boundary
+         SETREG(2, 'h80000000);
+         SETREG(6, 'h7FFFFFFF);
+         inst <= BRANCH(2, "<", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+      end
+      `TEST_CASE("BGE") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, ">>", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+
+         SETREG(2, 2);
+         inst <= BRANCH(2, ">>", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+
+         // Signed boundary
+         SETREG(2, 'h80000000);
+         SETREG(6, 'h7FFFFFFF);
+         inst <= BRANCH(2, ">>", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+      end
+      `TEST_CASE("BGEU") begin
+         SETREG(2, 1);
+         SETREG(6, 1);
+         inst <= BRANCH(2, ">", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 0);
+
+         SETREG(2, 2);
+         inst <= BRANCH(2, ">", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+
+         // Signed boundary
+         SETREG(2, 'h80000000);
+         SETREG(6, 'h7FFFFFFF);
+         inst <= BRANCH(2, ">", 6, 8);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 16);
+      end
+      `TEST_CASE("JAL") begin
+         // JAL x1, +4
+         pc <= 1234;
+         inst <= J(`JAL, 1, 2);
+         `CHECK_EQUAL(pc_change, 0);
+         next_cycle();
+         `CHECK_EQUAL(X[1], pc+4);
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + (2<<1));
+         `CHECK_EQUAL(ready, 1);
+         pc <= pc_new;
+
+         // JAL x2, -1MB
+         inst <= J(`JAL, 2, {1'b1, 19'b0});
+         next_cycle();
+         `CHECK_EQUAL(X[2], pc+4);
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + {1'b1, 20'b0});
+         `CHECK_EQUAL(ready, 1);
+         pc <= pc_new;
+
+         // JAL x3, +200
+         inst <= J(`JAL, 3, 100);
+         next_cycle();
+         `CHECK_EQUAL(X[3], pc+4);
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, pc + 200);
+         `CHECK_EQUAL(ready, 1);
+      end
       `TEST_CASE("SB") begin
-         `CHECK_EQUAL(0, 1, "TODO");
+         // SB [x0+0xABC], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SB, 0, 'hABC, 15);
+         `CHECK_EQUAL(wr, 0);
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(wr_data, 'h44);
+
+         // SB [x1+0x100], x14
+         SETREG(1, 'h800);
+         SETREG(14, 'h44332211);
+         `CHECK_EQUAL(wr, 0);
+         inst <= S(`STORE, `SB, 1, 'h100, 14);
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'h900);
+         `CHECK_EQUAL(wr_data, 'h11);
       end
       `TEST_CASE("SH") begin
-         `CHECK_EQUAL(0, 1, "TODO");
+         // SH [x0+0xABC], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SH, 0, 'hABC, 15);
+         `CHECK_EQUAL(wr, 0);
+         #1
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(wr_data, 'h33);
+         next_cycle(); // <- On this edge BRAM should write 1st byte
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABD);
+         `CHECK_EQUAL(wr_data, 'h44);
+         next_cycle(); // <- On this edge BRAM should write 2nd byte
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 1);
+         inst <= 0;
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 0);
       end
       `TEST_CASE("SW") begin
-         `CHECK_EQUAL(0, 1, "TODO");
+         // SW [x0+0xABC], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SW, 0, 'hABC, 15);
+         `CHECK_EQUAL(wr, 0);
+         #1
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(wr_data, 'h11);
+         next_cycle(); // <- On this edge BRAM should write 1st byte
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABD);
+         `CHECK_EQUAL(wr_data, 'h22);
+         next_cycle(); // <- On this edge BRAM should write 2nd byte
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABE);
+         `CHECK_EQUAL(wr_data, 'h33);
+         next_cycle(); // <- On this edge BRAM should write 3rd byte
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(addr, 'hABF);
+         `CHECK_EQUAL(wr_data, 'h44);
+         next_cycle(); // <- On this edge BRAM should write 4th byte
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 1);
+         inst <= 0;
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(wr, 0);
       end // always
       `TEST_CASE("LB positive") begin
          // LB x8, [x0 + 4]
@@ -269,7 +606,7 @@ module execute_tb;
 
                 .i_pc(pc),
                 .o_pc_change(pc_change),
-                .o_new_pc(new_pc),
+                .o_new_pc(pc_new),
                 .o_ready(ready),
 
                 .o_X(X)
