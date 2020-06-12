@@ -6,13 +6,13 @@ module fetch_tb;
    reg                clk = 0;
    reg                rst = 0;
 
-   reg [`WORD_WIDTH-1:0] pc = 0;
+   reg [31:0]         pc = 0;
 
    reg [`DATA_WIDTH-1:0] data;
-   wire [`ADDR_WIDTH-1:0] addr;
-   wire                   wr;
+   wire [31:0]           addr;
+   wire                  wr;
 
-   wire [`INST_WIDTH-1:0] inst;
+   wire [31:0]           inst;
    wire ready;
 
    // Simulate memory.
@@ -77,7 +77,7 @@ module fetch_tb;
          @(posedge clk);
          @(posedge clk);
          @(posedge clk);
-         pc <= pc + `INST_WIDTH/8;
+         pc <= pc + 4;
          @(posedge clk);
          #1
          `CHECK_EQUAL(inst, 'h00BBCCDD);

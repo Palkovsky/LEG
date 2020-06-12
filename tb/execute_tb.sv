@@ -6,19 +6,19 @@ module execute_tb;
    reg                clk = 0;
    reg                rst = 0;
 
-   reg [`DATA_WIDTH-1:0]  data;
-   wire [`WORD_WIDTH-1:0] addr;
-   wire                   wr;
+   wire               wr;
+   wire [31:0]        addr;
+   reg [`DATA_WIDTH-1:0] data;
    wire [`DATA_WIDTH-1:0] wr_data;
 
-   reg [`INST_WIDTH-1:0]  inst;
+   reg [31:0]  inst;
 
-   wire [`WORD_WIDTH-1:0] pc;
-   wire                   pc_change;
-   wire [`WORD_WIDTH-1:0] new_pc;
-   wire                   ready;
+   wire [31:0] pc;
+   wire        pc_change;
+   wire [31:0] new_pc;
+   wire        ready;
 
-   wire [`WORD_WIDTH-1:0] X[0:31];
+   wire [31:0] X[0:31];
 
    // Simulate memory.
    always_comb begin
@@ -31,7 +31,7 @@ module execute_tb;
         5: data = 'h55;
         default: data = 0;
       endcase
-   end // always_comb
+   end
 
    /*
     * Instruction formats functions
@@ -124,7 +124,6 @@ module execute_tb;
          `CHECK_EQUAL(X[6], 7);
       end
       `TEST_CASE("ADDI") begin
-         // 0xAAA = -1366
          // ADDI x1, x0, -1366
          inst <= I(`OP_IMM, `ADDI, 1, 0, -1366);
          next_cycle();

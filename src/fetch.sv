@@ -1,21 +1,22 @@
 `include "common.svh"
 
-`define INST_BYTES `INST_WIDTH/8
+`define INST_BYTES 4
 
 module fetch (
-	input                        i_clk,
-  input                        i_rst,
-  input [`WORD_WIDTH-1:0]      i_pc,
+	input                   i_clk,
+  input                   i_rst,
+  input [31:0]            i_pc,
 
-  input [`DATA_WIDTH-1:0]      i_mem_data,
-  output reg [`ADDR_WIDTH-1:0] o_mem_addr,
-  output reg                   o_mem_write = 0,
+  input [`DATA_WIDTH-1:0] i_mem_data,
+  output reg [31:0]       o_mem_addr,
+  output reg              o_mem_write = 0,
 
-  output reg [`INST_WIDTH-1:0] o_inst = 0,
-	output reg                   o_ready = 0
+  output reg [31:0]       o_inst = 0,
+	output reg              o_ready = 0
 );
-   reg [5:0]                   counter = 0;
-   assign o_mem_addr = i_pc[`ADDR_WIDTH-1:0] + counter;
+   reg [5:0]              counter = 0;
+
+   assign o_mem_addr = i_pc + counter;
 
    always @(posedge i_clk) begin
       o_ready <= 0;

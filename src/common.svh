@@ -3,10 +3,7 @@
 
  // Sizes
  `define DATA_WIDTH 8
- `define ADDR_WIDTH 12
- `define WORD_WIDTH 32
- `define INST_WIDTH 32
-
+ 
  // OPCODE definitions
  `define LUI      7'b0110111
  `define AUIPC    7'b0010111

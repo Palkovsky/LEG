@@ -11,12 +11,12 @@ module execute (
   output reg [`DATA_WIDTH-1:0] o_mem_data = 0,
 
   // Instruction
-  input [`INST_WIDTH-1:0]      i_inst,
+  input [31:0]                 i_inst,
 
   // Control unit interface
-  input [`WORD_WIDTH-1:0]      i_pc,
+  input [31:0]                 i_pc,
   output reg                   o_pc_change = 0,
-  output reg [`WORD_WIDTH-1:0] o_new_pc = 0,
+  output reg [31:0]            o_new_pc = 0,
   output reg                   o_ready = 1,
 
   // Output registers for tesing

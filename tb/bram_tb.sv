@@ -7,20 +7,20 @@ module bram_tb;
 
    reg                clk_a = 1'b0;
    reg                wr_a = 1'b0;
-   reg [`ADDR_WIDTH-1:0]         addr_a = 1'b0;
-   reg [`DATA_WIDTH-1:0]         data_a_in = 1'b0;
-   wire [`DATA_WIDTH-1:0]        data_a_out;
+   reg [31:0]         addr_a = 1'b0;
+   reg [`DATA_WIDTH-1:0] data_a_in = 1'b0;
+   wire [`DATA_WIDTH-1:0] data_a_out;
 
-   reg                          clk_b = 1'b0;
-   reg                          wr_b = 1'b0;
-   reg [`ADDR_WIDTH-1:0]         addr_b = 1'b0;
-   reg [`DATA_WIDTH-1:0]         data_b_in = 1'b0;
-   wire [`DATA_WIDTH-1:0]        data_b_out;
+   reg                    clk_b = 1'b0;
+   reg                    wr_b = 1'b0;
+   reg [31:0]             addr_b = 1'b0;
+   reg [`DATA_WIDTH-1:0]  data_b_in = 1'b0;
+   wire [`DATA_WIDTH-1:0] data_b_out;
 
    task automatic write
      (
-      input string port,
-      input [`ADDR_WIDTH-1:0] addr,
+      input string            port,
+      input [31:0]            addr,
       input [`DATA_WIDTH-1:0] data
      );
       if (port == "A") begin
@@ -46,8 +46,8 @@ module bram_tb;
 
    task automatic assert_read
      (
-      input string           port,
-      input [`ADDR_WIDTH-1:0] addr,
+      input string            port,
+      input [31:0]            addr,
       input [`DATA_WIDTH-1:0] expected
      );
       if (port == "A") begin
@@ -114,7 +114,7 @@ module bram_tb;
    bram
    #(
      .DATA_WIDTH(`DATA_WIDTH),
-     .ADDR_WIDTH(`ADDR_WIDTH)
+     .ADDR_WIDTH(12)
    ) bram_mod
    (
     .i_clk_a(clk_a),

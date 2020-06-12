@@ -6,8 +6,8 @@ module core(
 );
 	 wire [`DATA_WIDTH-1:0] bram_input_a;
    wire [`DATA_WIDTH-1:0] bram_input_b;
-	 wire [`ADDR_WIDTH-1:0] bram_addr_a;
-	 wire [`ADDR_WIDTH-1:0] bram_addr_b;
+	 wire [31:0] bram_addr_a;
+	 wire [31:0] bram_addr_b;
 	 wire                   bram_write_a;
 	 wire                   bram_write_b;
 	 wire [`DATA_WIDTH-1:0] bram_output_a;
@@ -15,7 +15,7 @@ module core(
 
 	bram #(
     .DATA_WIDTH(`DATA_WIDTH),
-    .ADDR_WIDTH(`ADDR_WIDTH)
+    .ADDR_WIDTH(12)
   ) bram (
 		.i_clk_a(i_clk),
 		.i_data_a(bram_input_a),
