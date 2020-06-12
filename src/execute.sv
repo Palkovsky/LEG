@@ -169,7 +169,7 @@ module execute (
               end
               // SRAI
               7'b0100000: begin
-                 r_X[w_rd] <= r_X[w_rs1] >>> w_I[4:0];
+                 r_X[w_rd] <= $signed(r_X[w_rs1]) >>> w_I[4:0];
               end
               default: ; // Invalid instruction.
            endcase
@@ -242,7 +242,7 @@ module execute (
            o_pc_change = 1;
         end
         `JALR: begin
-           o_new_pc = (w_I + r_X[w_rs1]) & ~(32'b1);
+           o_new_pc = (r_X[w_rs1] + w_I) & ~(32'b1);
            o_pc_change = 1;
         end
         `BRANCH: begin

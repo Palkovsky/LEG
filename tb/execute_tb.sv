@@ -110,6 +110,23 @@ module execute_tb;
         ">":  BRANCH = B(`BRANCH, `BGEU, rs1, rs2, imm);
       endcase
    endfunction
+   function [31:0] IMM_OP;
+      input [4:0]  rd;
+      input [4:0]  rs1;
+      input string ty;
+      input [11:0] imm;
+      case (ty)
+        "+":     IMM_OP = I(`OP_IMM, `ADDI, rd, rs1, imm);
+        "SLTI":  IMM_OP = I(`OP_IMM, `SLTI, rd, rs1, imm);
+        "SLTIU": IMM_OP = I(`OP_IMM, `SLTIU,  rd, rs1, imm);
+        "&":     IMM_OP = I(`OP_IMM, `ANDI, rd, rs1, imm);
+        "|":     IMM_OP = I(`OP_IMM, `ORI, rd, rs1, imm);
+        "^":     IMM_OP = I(`OP_IMM, `XORI, rd, rs1, imm);
+        "<<":    IMM_OP = I(`OP_IMM, `SLLI, rd, rs1, {7'b0, imm[4:0]});
+        ">>":    IMM_OP = I(`OP_IMM, `SRLI, rd, rs1, {7'b0, imm[4:0]});
+        ">>>":   IMM_OP = I(`OP_IMM, `SRAI, rd, rs1, {2'b01, 5'b0, imm[4:0]});
+      endcase
+   endfunction
    function [31:0] REG_OP;
       input [4:0]  rd;
       input [4:0]  rs1;
@@ -123,8 +140,8 @@ module execute_tb;
         "&": REG_OP    = R(`OP_REG, `AND, 0, rd, rs1, rs2);
         "SLT": REG_OP  = R(`OP_REG, `SLT, 0, rd, rs1, rs2);
         "SLTU": REG_OP = R(`OP_REG, `SLTU, 0, rd, rs1, rs2);
-        "<<": REG_OP  = R(`OP_REG, `SLL, 0, rd, rs1, rs2);
-        ">>": REG_OP  = R(`OP_REG, `SRL, 0, rd, rs1, rs2);
+        "<<": REG_OP   = R(`OP_REG, `SLL, 0, rd, rs1, rs2);
+        ">>": REG_OP   = R(`OP_REG, `SRL, 0, rd, rs1, rs2);
         ">>>": REG_OP  = R(`OP_REG, `SRA, {2'b01, 5'b0}, rd, rs1, rs2);
       endcase
    endfunction
@@ -156,6 +173,98 @@ module execute_tb;
          `CHECK_EQUAL(X[7], 'h11223344);
          `CHECK_EQUAL(X[2], 'hFFFFFFFF);
          `CHECK_EQUAL(X[6], 7);
+      end
+      `TEST_CASE("ADDI") begin
+         // ADDI x1, x0, -500
+         inst <= IMM_OP(1, 0, "+", -500);
+         next_cycle();
+         `CHECK_EQUAL(X[1], 4096-500);
+
+         inst <= IMM_OP(1, 0, "+", 10);
+         next_cycle();
+         `CHECK_EQUAL(X[1], 10);
+
+         SETREG(1, 'hFFFFFFFF);
+         inst <= IMM_OP(2, 1, "+", 1);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 0);
+      end
+      `TEST_CASE("SLTI") begin
+         SETREG(1, 22);
+         inst <= IMM_OP(2, 1, "SLTI", 33);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 1);
+
+         inst <= IMM_OP(2, 1, "SLTI", 11);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 0);
+
+         // Signed boundary
+         SETREG(1, 'h7FF);
+         inst <= IMM_OP(2, 1, "SLTI", 'h800);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 0);
+      end
+      `TEST_CASE("SLTIU") begin
+         SETREG(1, 22);
+         inst <= IMM_OP(2, 1, "SLTIU", 33);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 1);
+
+         inst <= IMM_OP(2, 1, "SLTIU", 11);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 0);
+
+         // Signed boundary
+         SETREG(1, 'h7FF);
+         inst <= IMM_OP(2, 1, "SLTIU", 'h800);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 1);
+      end
+      `TEST_CASE("SLLI") begin
+         SETREG(1, 'hFFFFFFFF);
+         inst <= IMM_OP(2, 1, "<<", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hFFFFFFF0);
+
+         inst <= IMM_OP(2, 2, "<<", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hFFFFFF00);
+
+         inst <= IMM_OP(2, 2, "<<", 20);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hF0000000);
+      end
+      `TEST_CASE("SRLI") begin
+         SETREG(1, 'hFFFFFFFF);
+         inst <= IMM_OP(2, 1, ">>", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hFFFFFFF);
+
+         inst <= IMM_OP(2, 2, ">>", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hFFFFFF);
+
+         inst <= IMM_OP(2, 2, ">>", 20);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hF);
+      end
+      `TEST_CASE("SRAI") begin
+         SETREG(1, 'hFFFFFFFF);
+         inst <= IMM_OP(2, 1, ">>>", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'hFFFFFFFF);
+
+         SETREG(1, 'h0FFFFFFF);
+         inst <= IMM_OP(2, 1, ">>>", 4);
+         next_cycle();
+         `CHECK_EQUAL(X[2], 'h00FFFFFF);
+      end
+      `TEST_CASE("AUIPC") begin
+         pc <= 'h2222;
+         inst <= U(`AUIPC, 10, 'h80000);
+         next_cycle();
+         `CHECK_EQUAL(X[10], { 20'h80002, 12'h222 });
       end
       `TEST_CASE("ADD") begin
          // ADD x3, x1, x2
@@ -255,17 +364,6 @@ module execute_tb;
          inst <= REG_OP(3, 1, ">>>", 2);
          next_cycle();
          `CHECK_EQUAL(X[3], 'h00FFFFFF);
-      end
-      `TEST_CASE("ADDI") begin
-         // ADDI x1, x0, -500
-         inst <= I(`OP_IMM, `ADDI, 1, 0, -500);
-         next_cycle();
-         `CHECK_EQUAL(ready, 1);
-         `CHECK_EQUAL(X[1], 4096-500);
-         inst <= I(`OP_IMM, `ADDI, 1, 0, 10);
-         next_cycle();
-         `CHECK_EQUAL(ready, 1);
-         `CHECK_EQUAL(X[1], 10);
       end
       `TEST_CASE("BEQ") begin
          SETREG(2, 1);
@@ -403,6 +501,18 @@ module execute_tb;
          `CHECK_EQUAL(pc_change, 1);
          `CHECK_EQUAL(pc_new, pc + 200);
          `CHECK_EQUAL(ready, 1);
+      end
+      `TEST_CASE("JALR") begin
+         SETREG(15, 'h100);
+         inst <= I(`JALR, 0, 1, 15, 'h80);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, 'h180);
+
+         inst <= I(`JALR, 0, 1, 15, 'h81);
+         next_cycle();
+         `CHECK_EQUAL(pc_change, 1);
+         `CHECK_EQUAL(pc_new, 'h180);
       end
       `TEST_CASE("SB") begin
          // SB [x0+0xABC], x15
