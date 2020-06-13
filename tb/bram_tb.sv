@@ -1,5 +1,5 @@
 `include "vunit_defines.svh"
-`include "../src/common.svh"
+`include "funcs.svh"
 
 module bram_tb;
    localparam integer clk_a_period = 20; // ns
@@ -10,12 +10,14 @@ module bram_tb;
    reg [31:0]         addr_a = 1'b0;
    reg [`DATA_WIDTH-1:0] data_a_in = 1'b0;
    wire [`DATA_WIDTH-1:0] data_a_out;
+   wire [11:0]            addr_a_low12 = addr_a[11:0];
 
    reg                    clk_b = 1'b0;
    reg                    wr_b = 1'b0;
    reg [31:0]             addr_b = 1'b0;
    reg [`DATA_WIDTH-1:0]  data_b_in = 1'b0;
    wire [`DATA_WIDTH-1:0] data_b_out;
+   wire [11:0]            addr_b_low12 = addr_b[11:0];
 
    task automatic write
      (
@@ -121,8 +123,8 @@ module bram_tb;
     .i_clk_b(clk_b),
     .i_write_a(wr_a),
     .i_write_b(wr_b),
-    .i_addr_a(addr_a),
-    .i_addr_b(addr_b),
+    .i_addr_a(addr_a_low12),
+    .i_addr_b(addr_b_low12),
     .i_data_a(data_a_in),
     .i_data_b(data_b_in),
     .o_data_a(data_a_out),

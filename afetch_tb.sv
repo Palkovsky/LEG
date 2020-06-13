@@ -1,5 +1,5 @@
 `include "vunit_defines.svh"
-`include "funcs.svh"
+`include "../src/common.svh"
 
 module fetch_tb;
    localparam integer clk_period = 10;
@@ -10,10 +10,10 @@ module fetch_tb;
 
    reg [`DATA_WIDTH-1:0] data;
    wire [31:0]           addr;
+   wire                  wr;
 
    reg [31:0]           inst;
-   wire                 ready;
-   wire                 started;
+   reg ready;
 
    // Simulate memory.
    always_comb begin
@@ -38,6 +38,7 @@ module fetch_tb;
          rst <= 0;
       end
       `TEST_CASE("initial_state") begin
+         `CHECK_EQUAL(wr, 0);
          `CHECK_EQUAL(inst, 0);
          `CHECK_EQUAL(ready, 0);
       end
@@ -57,32 +58,29 @@ module fetch_tb;
          next_cycle();
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABBCC00);
-         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(ready, 0);
       end
       `TEST_CASE("three_cycles_rst") begin
          next_cycle();
          next_cycle();
          rst <= 1;
          next_cycle();
-         `CHECK_EQUAL(inst, 'hAABB0000);
+         `CHECK_EQUAL(inst, 'h00);
          `CHECK_EQUAL(ready, 0);
       end
       `TEST_CASE("four_cycles") begin
          next_cycle();
          next_cycle();
          next_cycle();
-         `CHECK_EQUAL(ready, 1);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABBCCDD);
-         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(ready, 1);
       end
       `TEST_CASE("five_cycles") begin
          next_cycle();
          next_cycle();
          next_cycle();
          next_cycle();
-         `CHECK_EQUAL(inst, 'hAABBCCDD);
-         `CHECK_EQUAL(ready, 0);
          pc <= pc + 4;
          next_cycle();
          `CHECK_EQUAL(inst, 'h00BBCCDD);
@@ -102,8 +100,8 @@ module fetch_tb;
       .i_pc(pc),
       .i_mem_data(data),
       .o_mem_addr(addr),
+      .o_mem_write(wr),
       .o_inst(inst),
-      .o_ready(ready),
-      .o_started(started)
+      .o_ready(ready)
      );
 endmodule
