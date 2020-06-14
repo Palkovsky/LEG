@@ -8,7 +8,10 @@ module core (
   output reg [31:0]            o_mem_addr,
   output reg [`DATA_WIDTH-1:0] o_mem_data,
   input [`DATA_WIDTH-1:0]      i_mem_data,
-  output reg                   o_mem_write
+  output reg                   o_mem_write,
+
+  // Control information
+  output                       o_invalid_inst
 );
    localparam SIZE = 3;
    localparam FETCH_STATE = 3'b000, EXECUTE_STATE = 3'b001;
@@ -23,7 +26,6 @@ module core (
    reg [SIZE-1:0]         state = FETCH_STATE;
    wire                   pc_change;
    wire [31:0]            pc_change_new;
-   wire                   invalid_inst;
 
    wire                   fetch_ready;
    wire                   fetch_started;
@@ -116,7 +118,7 @@ module core (
       .o_pc_change(pc_change),
       .o_new_pc(pc_change_new),
       .o_ready(execute_ready),
-      .o_invalid_inst(invalid_inst)
+      .o_invalid_inst(o_invalid_inst)
     );
 endmodule
 

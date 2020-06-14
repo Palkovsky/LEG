@@ -12,6 +12,7 @@ module core_tb;
    reg [`DATA_WIDTH-1:0]  data_in;
 
    localparam FETCH_STATE = 3'b000, EXECUTE_STATE = 3'b001;
+   wire                   invalid_inst;
 
    reg [31:0]             inst_buff;
 
@@ -74,16 +75,16 @@ module core_tb;
          `CHECK_EQUAL(core.state, FETCH_STATE);
          `CHECK_EQUAL(core.pc, 4);
 
-         FETCH(S(`STORE, `SH, 0, 'hABC, 5));
+         FETCH(S(`STORE, `SH, 0, 'h7BC, 5));
          #1;
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(data_out, 'hC0);
          `CHECK_EQUAL(core.state, EXECUTE_STATE);
          next_cycle();
 
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABD);
+         `CHECK_EQUAL(addr, 'h7BD);
          `CHECK_EQUAL(data_out, 'h00);
          `CHECK_EQUAL(core.state, EXECUTE_STATE);
          next_cycle();
@@ -172,7 +173,7 @@ module core_tb;
          `CHECK_EQUAL(core.execute.X[core.execute.w_rs1] + core.execute.w_I, 21);
          next_cycle();
 
-         `CHECK_EQUAL(core.invalid_inst, 0);
+         `CHECK_EQUAL(invalid_inst, 0);
          `CHECK_EQUAL(core.inst, inst_buff);
          `CHECK_EQUAL(core.state, FETCH_STATE);
          `CHECK_EQUAL(core.pc, 4);
@@ -194,6 +195,8 @@ module core_tb;
       .o_mem_addr(addr),
       .o_mem_data(data_out),
       .i_mem_data(data_in),
-      .o_mem_write(wr)
+      .o_mem_write(wr),
+
+      .o_invalid_inst(invalid_inst)
      );
 endmodule

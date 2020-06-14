@@ -39,6 +39,9 @@ module execute_tb;
 
    // Sets register value
    task SETREG(input [4:0] rd, input [31:0] value);
+      if (value[11]) begin
+         value[31:12] = value[31:12] + 1;
+      end
       inst <= LUI(rd, value[31:12]);
       next_cycle();
       inst <= IMM_OP(rd, rd, "+", value[11:0]);
@@ -56,21 +59,29 @@ module execute_tb;
          SETREG(2, 'hFFFFFFFF);
          SETREG(6, 7);
          SETREG(7, 'h11223344);
+         `CHECK_EQUAL(execute.X[7] & 'hFFF, 'h344);
+         `CHECK_EQUAL(execute.X[7] & 'hFFFFF000, 'h11223000);
          `CHECK_EQUAL(execute.X[7], 'h11223344);
          `CHECK_EQUAL(execute.X[2], 'hFFFFFFFF);
          `CHECK_EQUAL(execute.X[6], 7);
       end
       `TEST_CASE("Invalid instruction") begin
-         `CHECK_EQUAL(invalid_inst, 0);
+         `CHECK_EQUAL(invalid_inst, 1);
          inst <= { 25'b0, 7'b1};
          next_cycle();
          `CHECK_EQUAL(invalid_inst, 1);
+
+         inst <= IMM_OP(1, 0, "+", 1);
+         #1
+         `CHECK_EQUAL(invalid_inst, 0);
+         next_cycle();
+         `CHECK_EQUAL(invalid_inst, 0);
       end
       `TEST_CASE("ADDI") begin
          // ADDI x1, x0, -500
          inst <= IMM_OP(1, 0, "+", -500);
          next_cycle();
-         `CHECK_EQUAL(execute.X[1], 4096-500);
+         `CHECK_EQUAL(execute.X[1], 'hFFFFFE0C);
 
          inst <= IMM_OP(1, 0, "+", 10);
          next_cycle();
@@ -409,12 +420,12 @@ module execute_tb;
       `TEST_CASE("SB") begin
          // SB [x0+0xABC], x15
          SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SB, 0, 'hABC, 15);
+         inst <= S(`STORE, `SB, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr, 0);
          next_cycle();
          `CHECK_EQUAL(ready, 1);
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h44);
 
          // SB [x1+0x100], x14
@@ -431,16 +442,16 @@ module execute_tb;
       `TEST_CASE("SH") begin
          // SH [x0+0xABC], x15
          SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SH, 0, 'hABC, 15);
+         inst <= S(`STORE, `SH, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr, 0);
          #1
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h33);
          next_cycle(); // <- On this edge BRAM should write 1st byte
          `CHECK_EQUAL(ready, 1);
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABD);
+         `CHECK_EQUAL(addr, 'h7BD);
          `CHECK_EQUAL(wr_data, 'h44);
 
          // Prepare next instruction
@@ -452,26 +463,26 @@ module execute_tb;
       `TEST_CASE("SW") begin
          // SW [x0+0xABC], x15
          SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SW, 0, 'hABC, 15);
+         inst <= S(`STORE, `SW, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr, 0);
          #1
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABC);
+         `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11);
          next_cycle(); // <- On this edge BRAM should write 1st byte
          `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABD);
+         `CHECK_EQUAL(addr, 'h7BD);
          `CHECK_EQUAL(wr_data, 'h22);
          next_cycle(); // <- On this edge BRAM should write 2nd byte
          `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABE);
+         `CHECK_EQUAL(addr, 'h7BE);
          `CHECK_EQUAL(wr_data, 'h33);
          next_cycle(); // <- On this edge BRAM should write 3rd byte
          `CHECK_EQUAL(ready, 1); // This is the last cycle
          `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'hABF);
+         `CHECK_EQUAL(addr, 'h7BF);
          `CHECK_EQUAL(wr_data, 'h44);
 
          //  Becose ready==1, prepare next instruction
