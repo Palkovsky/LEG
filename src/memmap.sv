@@ -44,7 +44,7 @@ module memmap
       if (cpu_addr < BRAM_SIZE) begin
          access_ty <= BRAM_ACCESS;
          { bram_addr, bram_write, bram_data_in } <= { cpu_addr, cpu_write, cpu_data_out };
-         if (cpu_write)
+         if (!cpu_write)
            cpu_data_in <= bram_data_out;
       end
       // FIFO access. It accepts only writes from the CPU.
@@ -54,8 +54,7 @@ module memmap
            { fifo_data_in, fifo_write_enabled } <= { cpu_data_out, 1'b1 };
       end
       // Unmaped area access
-      else begin
+      else
          invalid_addr <= 1;
-      end
    end
 endmodule

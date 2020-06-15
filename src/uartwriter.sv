@@ -2,27 +2,31 @@
 
 module uartwriter
  (
-  input                   i_clk,
-  input                   i_rst,
+  input                   clk,
+  input                   rst,
 
   input                   rx,
   output                  tx,
 
   input                   fifo_empty,
   input [`DATA_WIDTH-1:0] fifo_data,
-  output reg              fifo_read_en
+  output reg              fifo_read_en = 0
  );
 
-   localparam STATE_SIZE = 2;
-   localparam IDLE = 2'h0, FETCHING = 2'h1, SENDING = 2'h2;
+   localparam STATE_SIZE = 3;
+   localparam
+     IDLE = 3'h0,
+     FETCHING = 3'h1,
+     SEND_START_WAIT = 3'h2,
+     SENDING = 3'h3;
 
    reg [STATE_SIZE-1:0]   state = IDLE;
    reg                    transmit = 0;
-   reg [7:0]              transmit_byte;
+   reg [7:0]              transmit_byte = 0;
    wire                   transmitting;
 
-   always @(posedge i_clk) begin
-      if (i_rst) begin
+   always @(posedge clk) begin
+      if (rst) begin
          state <= IDLE;
          transmit <= 0;
          transmit_byte <= 0;
@@ -36,15 +40,24 @@ module uartwriter
               end
            end
            FETCHING: begin
-              fifo_read_en <= 0;
               transmit_byte <= fifo_data;
+              fifo_read_en <= 0;
+              state <= SEND_START_WAIT;
               transmit <= 1;
-              state <= SENDING;
+           end
+           SEND_START_WAIT: begin
+              if (!transmitting) begin
+                 transmit <= 1;
+              end
+              else begin
+                 transmit <= 0;
+                 state <= SENDING;
+              end
            end
            SENDING: begin
-              transmit <= 0;
               if (!transmitting) begin
                  state <= IDLE;
+                 transmit_byte <= 0;
               end
            end
       endcase
@@ -53,8 +66,8 @@ module uartwriter
 
    uart uart
      (
-      .clk(i_clk),
-      .rst(i_rst),
+      .clk(clk),
+      .rst(rst),
       .rx(rx),
       .tx(tx),
       .transmit(transmit),
