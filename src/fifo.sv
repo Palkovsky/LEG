@@ -3,20 +3,19 @@ module fifo
     ADDR_WIDTH,
     FIFO_DEPTH = (1 << ADDR_WIDTH)
    )(
+     input wire                  clk,
+     input wire                  rst,
+
      // Read port
      output reg [DATA_WIDTH-1:0] data_out,
      output reg                  empty_out,
      input wire                  read_en_in,
-     input wire                  read_clk,
 
      // Write port
      input wire [DATA_WIDTH-1:0] data_in,
      output reg                  full_out,
-     input wire                  write_en_in,
-     input wire                  write_clk,
-
-     input wire                  rst
-   );
+     input wire                  write_en_in
+  );
 
    /////Internal connections & variables//////
   reg   [DATA_WIDTH-1:0]              memory [FIFO_DEPTH-1:0];
@@ -29,22 +28,27 @@ module fifo
    assign empty_out = (counter == 0);
    assign full_out = (counter == FIFO_DEPTH);
 
+   wire                               read_req;
+   wire                               write_req;
+   assign read_req = read_en_in & !empty_out;
+   assign write_req  = write_en_in & !full_out;
+
     //////////////Code///////////////
     //Data ports logic:
-    //(Uses a dual-port RAM).
-    //'data_out' logic:
-    always @ (posedge read_clk)
-        if (read_en_in & !empty_out) begin
+    always @ (posedge clk) begin
+        if (read_req)
             data_out <= memory[pNextWordToRead];
-           counter <= counter-1;
-        end
 
-    //'data_in' logic:
-    always @ (posedge write_clk)
-        if (write_en_in & !full_out) begin
+       if (write_req)
            memory[pNextWordToWrite] <= data_in;
+
+       if (read_req && write_req) begin end
+       else if (read_req)
+          counter <= counter-1;
+       else if (write_req)
            counter <= counter+1;
-        end
+    end
+
 
     //Fifo addresses support logic:
     //'Next Addresses' enable logic:
@@ -56,14 +60,14 @@ module fifo
        (.GrayCount_out(pNextWordToWrite),
         .Enable_in(NextWriteAddressEn),
         .Clear_in(rst),
-        .Clk(write_clk)
+        .Clk(clk)
        );
 
    GrayCounter #(.COUNTER_WIDTH(ADDR_WIDTH)) GrayCounter_pRd
      (.GrayCount_out(pNextWordToRead),
       .Enable_in(NextReadAddressEn),
       .Clear_in(rst),
-      .Clk(read_clk)
+      .Clk(clk)
      );
 endmodule
 

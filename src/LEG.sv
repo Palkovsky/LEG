@@ -63,20 +63,19 @@ module LEG(
        .ADDR_WIDTH(4)
        ) fifo
        (
+        .clk(i_clk),
+        .rst(i_rst),
+
         // Read port
         .data_out(fifo_data_out),
         .empty_out(fifo_empty),
         .read_en_in(fifo_read_enabled),
-        .read_clk(i_clk),
 
         // Write port
         .data_in(fifo_data_in),
         .full_out(fifo_full),
-        .write_en_in(fifo_write_enabled),
-        .write_clk(i_clk),
-
-        .rst(i_rst)
-        );
+        .write_en_in(fifo_write_enabled)
+       );
 
    memmap memmap
      (

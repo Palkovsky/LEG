@@ -38,12 +38,14 @@ module memmap
       fifo_write_enabled <= 0;
       invalid_addr <= 0;
       access_ty <= BAD_ACCESS;
+      cpu_data_in <= 0;
 
       // BRAM access
       if (cpu_addr < BRAM_SIZE) begin
          access_ty <= BRAM_ACCESS;
          { bram_addr, bram_write, bram_data_in } <= { cpu_addr, cpu_write, cpu_data_out };
-         cpu_data_in <= (cpu_write) ? 0 : bram_data_out;
+         if (cpu_write)
+           cpu_data_in <= bram_data_out;
       end
       // FIFO access. It accepts only writes from the CPU.
       else if (cpu_addr == FIFO_ADDR) begin
