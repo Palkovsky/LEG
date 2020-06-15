@@ -46,7 +46,7 @@ module execute (
    wire [31:0]                w_J_se = { {11{w_J[19]}}, w_J, 1'b0 };
 
    // 32 scalar registers
-   reg [31:0]                 X[0:31] = '{ 32{32'b0} };
+   reg [31:0]                 X[0:15] = '{ 16{32'b0} };
 
    // ALU
    reg [31:0]                r_alu_op1;

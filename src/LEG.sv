@@ -1,7 +1,7 @@
 `include "common.svh"
 
 module LEG(
-	input  i_clk,
+  input  i_clk,
   input  i_rst,
 
   // UART
@@ -10,12 +10,18 @@ module LEG(
 
   // Error signals
   output o_invalid_inst,
-  output o_invalid_addr
+  output o_invalid_addr,
+
+  output o_buzzer
 );
+
    wire [31:0] cpu_addr;
    wire [`DATA_WIDTH-1:0] cpu_data_out;
-   reg [`DATA_WIDTH-1:0]  cpu_data_in;
+   wire [`DATA_WIDTH-1:0]  cpu_data_in;
    wire                   cpu_write;
+	 wire [31:0]            pc;
+
+	assign o_buzzer = pc > 16;
 
    core core
      (
@@ -27,7 +33,8 @@ module LEG(
       .i_mem_data(cpu_data_in),
       .o_mem_write(cpu_write),
 
-      .o_invalid_inst(o_invalid_inst)
+      .o_invalid_inst(o_invalid_inst),
+		  .o_pc(pc)
      );
 
    reg [`DATA_WIDTH-1:0]  bram_data_in;
@@ -99,4 +106,17 @@ module LEG(
       // Control signals
       .invalid_addr(o_invalid_addr)
      );
+
+	  uartwriter uartwriter
+		(
+			.clk(i_clk),
+			.rst(i_rst),
+
+			.rx(rx),
+			.tx(tx),
+
+			.fifo_empty(fifo_empty),
+			.fifo_data(fifo_data_out),
+			.fifo_read_en(fifo_read_enabled)
+		);
 endmodule

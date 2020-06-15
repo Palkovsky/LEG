@@ -11,13 +11,15 @@ module core (
   output reg                   o_mem_write,
 
   // Control information
-  output                       o_invalid_inst
+  output                       o_invalid_inst,
+  output [31:0]                o_pc
 );
    localparam SIZE = 3;
    localparam FETCH_STATE = 3'b000, EXECUTE_STATE = 3'b001;
 
    // PC register.
    reg [31:0]             pc = 0;
+	assign o_pc = pc;
 
    // Currently fetched/executed instruction.
    reg [31:0]             inst;
@@ -58,18 +60,18 @@ module core (
    always_comb begin
       case (state)
         FETCH_STATE: begin
-           execute_mem_in = 0;
-           fetch_mem_in = i_mem_data;
-           o_mem_addr = fetch_mem_addr;
-           o_mem_data = 0;
-           o_mem_write = 0;
+           execute_mem_in <= 0;
+           fetch_mem_in <= i_mem_data;
+           o_mem_addr <= fetch_mem_addr;
+           o_mem_data <= 0;
+           o_mem_write <= 0;
         end
         EXECUTE_STATE: begin
-           fetch_mem_in = 0;
-           execute_mem_in = i_mem_data;
-           o_mem_addr = execute_mem_addr;
-           o_mem_data = execute_mem_out;
-           o_mem_write = execute_mem_write;
+           fetch_mem_in <= 0;
+           execute_mem_in <= i_mem_data;
+           o_mem_addr <= execute_mem_addr;
+           o_mem_data <= execute_mem_out;
+           o_mem_write <= execute_mem_write;
         end
       endcase
    end
