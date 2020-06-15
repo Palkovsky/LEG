@@ -121,23 +121,3 @@ module core (
       .o_invalid_inst(o_invalid_inst)
     );
 endmodule
-
-/*
- bram #(
- .DATA_WIDTH(`DATA_WIDTH),
- .ADDR_WIDTH(12)
- ) bram (
- .i_clk_a(i_clk),
- .i_clk_b(i_clk),
-
- .i_data_a(bram_input_a),
- .i_addr_a(bram_addr_a),
- .i_write_a(bram_write_a),
- .o_data_a(bram_output_a),
-
- .i_data_b(bram_input_b),
- .i_addr_b(bram_addr_b),
- .i_write_b(bram_write_b),
- .o_data_b(bram_output_b)
- );
- */

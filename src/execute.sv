@@ -149,39 +149,42 @@ module execute (
       .o_result(r_alu_result)
       );
 
-   always @* begin
+   always_comb begin
+		r_alu_operation = 0;
+		r_alu_op1 = 0;
       r_alu_op3 = 0;
+		r_alu_op2 = 0;
       o_invalid_inst = 0;
       case (w_opcode)
         `LOAD: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = X[w_rs1];
            r_alu_op2 = w_I;
            r_alu_op3 = r_bytes_transfered;
         end
         `STORE: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = X[w_rs1];
            r_alu_op2 = w_S_se;
            r_alu_op3 = r_bytes_transfered;
         end
         `BRANCH: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = i_pc;
            r_alu_op2 = w_B_se;
         end
         `JAL: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = i_pc;
            r_alu_op2 = w_J_se;
         end
         `JALR: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = X[w_rs1];
            r_alu_op2 = w_I;
         end
         `AUIPC: begin
-           r_alu_operation = alu.ADD;
+           r_alu_operation = `ALU_ADD;
            r_alu_op1 = i_pc;
            r_alu_op2 = { w_U, 12'b0 };
         end
@@ -189,23 +192,24 @@ module execute (
            r_alu_op1 = X[w_rs1];
            r_alu_op2 = w_I_se;
            case (w_funct3)
-             `ADDI: r_alu_operation = alu.ADD;
-             `SLTI: r_alu_operation = alu.SLT;
-             `SLTIU: r_alu_operation = alu.SLTU;
-             `ORI: r_alu_operation = alu.OR;
-             `XORI: r_alu_operation = alu.XOR;
-             `ANDI: r_alu_operation = alu.AND;
+             `ADDI: r_alu_operation = `ALU_ADD;
+             `SLTI: r_alu_operation = `ALU_SLT;
+             `SLTIU: r_alu_operation = `ALU_SLTU;
+             `ORI: r_alu_operation = `ALU_OR;
+             `XORI: r_alu_operation = `ALU_XOR;
+             `ANDI: r_alu_operation = `ALU_AND;
              `SLLI: begin
-                r_alu_operation = alu.SLL;
+                r_alu_operation = `ALU_SLL;
                 r_alu_op2 = w_I[4:0];
              end
              `SRLI | `SRAI: begin
                 r_alu_op2 = w_I[4:0];
                 if (w_I[11:5] == 7'b0000000)
-                   r_alu_operation = alu.SRL;
+                   r_alu_operation = `ALU_SRL;
                 else if(w_I[11:5] == 7'b0100000)
-                   r_alu_operation = alu.SRA;
-                else begin /*Invalid instruction */ end
+                   r_alu_operation = `ALU_SRA;
+                else
+                  o_invalid_inst = 1;
              end
            endcase
         end
@@ -215,23 +219,25 @@ module execute (
            case(w_funct3)
              `ADD, `SUB: begin
                 if (w_funct7 == 7'b0000000)
-                   r_alu_operation = alu.ADD;
+                   r_alu_operation = `ALU_ADD;
                 else if (w_funct7 == 7'b0100000)
-                   r_alu_operation = alu.SUB;
-                else begin /* Invalid instruction */ end
+                   r_alu_operation = `ALU_SUB;
+                else
+                  o_invalid_inst = 1;
              end
-             `SLT: r_alu_operation = alu.SLT;
-             `SLTU: r_alu_operation = alu.SLTU;
-             `OR: r_alu_operation = alu.OR;
-             `XOR: r_alu_operation = alu.XOR;
-             `AND: r_alu_operation = alu.AND;
-             `SLL: r_alu_operation = alu.SLL;
+             `SLT: r_alu_operation = `ALU_SLT;
+             `SLTU: r_alu_operation = `ALU_SLTU;
+             `OR: r_alu_operation = `ALU_OR;
+             `XOR: r_alu_operation = `ALU_XOR;
+             `AND: r_alu_operation = `ALU_AND;
+             `SLL: r_alu_operation = `ALU_SLL;
              `SRL | `SRA: begin
                 if (w_funct7 == 7'b0000000)
-                   r_alu_operation = alu.SRL;
+                   r_alu_operation = `ALU_SRL;
                 else if (w_funct7 == 7'b0100000)
-                   r_alu_operation = alu.SRA;
-                else begin /* Invalid instruction */ end
+                   r_alu_operation = `ALU_SRA;
+                else
+                  o_invalid_inst = 1;
              end
            endcase
         end
@@ -261,7 +267,7 @@ module execute (
     */
    task OP_REG_SEQ();
       X[w_rd] <= r_alu_result;
-   endtask;
+   endtask
 
    /*
     * ========= JUMPS
