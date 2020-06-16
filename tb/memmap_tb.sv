@@ -18,13 +18,21 @@ module memmap_tb;
    reg [`DATA_WIDTH-1:0]  bram_data_out;
    reg [31:0]             bram_addr;
 
+   reg                    mmio_access;
+   reg [31:0]             mmio_addr;
+   reg                    mmio_write;
+   reg [`DATA_WIDTH-1:0]  mmio_data_in = 0;
+   reg [`DATA_WIDTH-1:0]  mmio_data_out;
+
    reg [`DATA_WIDTH-1:0]  fifo_data_out;
    reg                    fifo_empty;
-   reg                    fifo_read_enabled = 0;
+   reg                    fifo_read_enabled;
 
    reg [`DATA_WIDTH-1:0]  fifo_data_in;
    reg                    fifo_full;
    reg                    fifo_write_enabled;
+
+   reg [4:0]              fifo_free;
 
    wire                   invalid_addr;
 
@@ -81,6 +89,7 @@ module memmap_tb;
          `CHECK_EQUAL(bram_write, 0);
          `CHECK_EQUAL(bram_data_in, 0);
          `CHECK_EQUAL(fifo_write_enabled, 1);
+         `CHECK_EQUAL(mmio_data_out, 44);
          `CHECK_EQUAL(fifo_data_in, 44);
          `CHECK_EQUAL(invalid_addr, 0);
          `CHECK_EQUAL(fifo_empty, 1);
@@ -96,11 +105,17 @@ module memmap_tb;
          `CHECK_EQUAL(fifo_data_in, 0);
          `CHECK_EQUAL(invalid_addr, 0);
 
+         `CHECK_EQUAL(mmio_data_in, 15);
+         `CHECK_EQUAL(cpu_data_in, 15);
+
          // Try reading from FIFO
          fifo_read_enabled = 1;
          next_cycle();
          `CHECK_EQUAL(fifo_data_out, 44);
          `CHECK_EQUAL(fifo_empty, 1);
+
+         `CHECK_EQUAL(mmio_data_in, 16);
+         `CHECK_EQUAL(cpu_data_in, 16);
       end
       `TEST_CASE("write invalid addr") begin
          cpu_addr = 32'h7FFFFFFF;
@@ -148,11 +163,15 @@ module memmap_tb;
         // Write port
         .data_in(fifo_data_in),
         .full_out(fifo_full),
-        .write_en_in(fifo_write_enabled)
+        .write_en_in(fifo_write_enabled),
+
+        .free(fifo_free)
        );
 
    memmap memmap
      (
+      .clk(),
+
       // CPU interface
       .cpu_addr(cpu_addr),
       .cpu_write(cpu_write),
@@ -165,12 +184,36 @@ module memmap_tb;
       .bram_data_in(bram_data_in),
       .bram_data_out(bram_data_out),
 
-      // FIFO write
-      .fifo_data_in(fifo_data_in),
-      .fifo_full(fifo_full),
-      .fifo_write_enabled(fifo_write_enabled),
+      // MMIO access
+      .mmio_access(mmio_access),
+      .mmio_addr(mmio_addr),
+      .mmio_write(mmio_write),
+      .mmio_data_in(mmio_data_in),
+      .mmio_data_out(mmio_data_out),
 
       // Control signals
       .invalid_addr(invalid_addr)
      );
+
+   always_comb begin
+      // Defaults
+      fifo_write_enabled <= 0;
+      fifo_data_in <= 0;
+      mmio_data_in <= 0;
+
+      if (mmio_access) begin
+         // UART FIFO
+         if (mmio_addr == 32'hFFFFFFFF) begin
+            if (mmio_write) begin
+               if (!fifo_full) begin
+                  fifo_write_enabled <= 1;
+                  fifo_data_in <= mmio_data_out;
+               end
+            end
+            else begin
+               mmio_data_in <= { 3'b0, fifo_free };
+            end
+         end
+      end
+   end
 endmodule

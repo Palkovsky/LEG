@@ -135,7 +135,6 @@ module core_tb;
          `CHECK_EQUAL(core.pc, 0);
       end
       `TEST_CASE("ADDI") begin
-         // vunit: .xd
          inst_buff = IMM_OP(1, 1, "+", 21);
 
          `CHECK_EQUAL(core.pc, 0);

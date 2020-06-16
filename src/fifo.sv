@@ -14,7 +14,10 @@ module fifo
      // Write port
      input wire [DATA_WIDTH-1:0] data_in,
      output reg                  full_out,
-     input wire                  write_en_in
+     input wire                  write_en_in,
+
+     // Control
+     output reg [ADDR_WIDTH:0]   free
   );
 
    /////Internal connections & variables//////
@@ -32,6 +35,8 @@ module fifo
    wire                               write_req;
    assign read_req = read_en_in & !empty_out;
    assign write_req  = write_en_in & !full_out;
+
+   assign free = FIFO_DEPTH-counter;
 
     //////////////Code///////////////
     //Data ports logic:

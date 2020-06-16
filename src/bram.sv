@@ -19,39 +19,38 @@ module bram #(
 		 for (int i=0; i<RAM_SIZE; i++) begin
 			  mem[i] = 0;
 		 end
-		 // ADDI x1, x0, 65 | 32'h04100093
-		 // { mem[0], mem[1], mem[2], mem[3] } = IMM_OP(1, 0, "+", 65);
-		 // ADDI x2, x0, -1 | 32'hfff00113
-		 // { mem[4], mem[5], mem[6], mem[7] } = IMM_OP(2, 0, "+", 'hFFF);
-		 // SB x1, 0(x2) | 32'h00110023
-		 // { mem[8], mem[9], mem[10], mem[11] } = S(`STORE, `SB, 2, 0, 1);
-		 // JAL x0, -4 | 32'hffdff06f
-		 //{ mem[12], mem[13], mem[14], mem[15] } =  32'hffdff06f;
-
-     // ADDI x1, x0, 256
-     { mem[0], mem[1], mem[2], mem[3] }     = 32'h10000093;
-     // LB x2, 0(x1)
-		 { mem[4], mem[5], mem[6], mem[7] }     = 32'h00008103;
-     // LB x3, 1(x1)
-     { mem[8], mem[9], mem[10], mem[11] }   = 32'h00108183;
-     // LB x4, 2(x1)
-     { mem[12], mem[13], mem[14], mem[15] } = 32'h00208203;
-     // LB x5, 3(x1)
-     { mem[16], mem[17], mem[18], mem[19] } = 32'h00308283;
-     // ADDI x1, x0, -1
-     { mem[20], mem[21], mem[22], mem[23] } = 32'hfff00093;
-     // tu:
-     // SB x2, 0(x1)
-     { mem[24], mem[25], mem[26], mem[27] } = 32'h00208023;
-     // SB x3, 0(x1)
-     { mem[28], mem[29], mem[30], mem[31] } = 32'h00308023;
-     // SB x4, 0(x1)
-     { mem[32], mem[33], mem[34], mem[35] } = 32'h00408023;
-     // SB x5, 0(x1)
-     { mem[36], mem[37], mem[38], mem[39] } = 32'h00508023;
-     // JAL x0, tu
-     { mem[40], mem[41], mem[42], mem[43] } = 32'hff1ff06f;
-
+     /*
+      * ADDI x14, x0, -1
+      * ADDI x15, x0, 256
+      * LB x1, 0(x15)
+      * LB x2, 1(x15)
+      * LB x3, 2(x15)
+      * LB x4, 3(x15)
+      * ADDI x6, x0, 5
+      * wait_free_buff:
+      * LB x5, 0(x14)
+      * BLTU x5, x6, wait_free_buff
+      * SB x1, 0(x14)
+      * SB x2, 0(x14)
+      * SB x3, 0(x14)
+      * SB x4, 0(x14)
+      * JAL x0, wait_free_buff
+      */
+     { mem[0], mem[1], mem[2], mem[3] }     = 32'hfff00713;
+		 { mem[4], mem[5], mem[6], mem[7] }     = 32'h10000793;
+     { mem[8], mem[9], mem[10], mem[11] }   = 32'h00078083;
+     { mem[12], mem[13], mem[14], mem[15] } = 32'h00178103;
+     { mem[16], mem[17], mem[18], mem[19] } = 32'h00278183;
+     { mem[20], mem[21], mem[22], mem[23] } = 32'h00378203;
+     { mem[24], mem[25], mem[26], mem[27] } = 32'h00500313;
+     { mem[28], mem[29], mem[30], mem[31] } = 32'h00070283;
+     { mem[32], mem[33], mem[34], mem[35] } = 32'hfe62eee3;
+     { mem[36], mem[37], mem[38], mem[39] } = 32'h00170023;
+     { mem[40], mem[41], mem[42], mem[43] } = 32'h00270023;
+     { mem[44], mem[45], mem[46], mem[47] } = 32'h00370023;
+     { mem[48], mem[49], mem[50], mem[51] } = 32'h00470023;
+     { mem[52], mem[53], mem[54], mem[55] } = 32'hfe9ff06f;
+     // Data to send
      { mem[256], mem[257], mem[258], mem[259] } = 32'h41424344;
 	end
 

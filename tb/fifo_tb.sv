@@ -89,6 +89,8 @@ module fifo_tb;
       // Write port
       .data_in(data_in),
       .full_out(is_full),
-      .write_en_in(write_en)
+      .write_en_in(write_en),
+
+      .free()
     );
 endmodule
