@@ -19,7 +19,7 @@ module LEG(
    wire [`DATA_WIDTH-1:0] cpu_data_out;
    wire [`DATA_WIDTH-1:0]  cpu_data_in;
    wire                   cpu_write;
-	 wire [31:0]            pc;
+	wire [31:0]            pc;
 
 	assign o_buzzer = pc > 16;
 

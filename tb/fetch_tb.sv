@@ -8,6 +8,7 @@ module fetch_tb;
 
    reg [31:0]         pc = 0;
 
+   reg [`DATA_WIDTH-1:0] data_sim;
    reg [`DATA_WIDTH-1:0] data;
    wire [31:0]           addr;
 
@@ -18,12 +19,16 @@ module fetch_tb;
    // Simulate memory.
    always_comb begin
       case (addr)
-        0: data = 'hAA;
-        1: data = 'hBB;
-        2: data = 'hCC;
-        3: data = 'hDD;
-        default: data = 0;
+        0: data_sim = 'hAA;
+        1: data_sim = 'hBB;
+        2: data_sim = 'hCC;
+        3: data_sim = 'hDD;
+        default: data_sim = 0;
       endcase
+   end
+
+   always @(posedge clk) begin
+      data <= data_sim;
    end
 
    task next_cycle();
@@ -43,47 +48,98 @@ module fetch_tb;
       end
       `TEST_CASE("one_cycle") begin
          next_cycle();
+         `CHECK_EQUAL(inst, 'h00000000);
+         next_cycle();
          `CHECK_EQUAL(inst, 'hAA000000);
          `CHECK_EQUAL(ready, 0);
       end
       `TEST_CASE("two_cycles") begin
          next_cycle();
+         `CHECK_EQUAL(inst, 'h00000000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAA000000);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABB0000);
          `CHECK_EQUAL(ready, 0);
       end
       `TEST_CASE("three_cycles") begin
          next_cycle();
+         `CHECK_EQUAL(inst, 'h00000000);
          next_cycle();
+         `CHECK_EQUAL(inst, 'hAA000000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAABB0000);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABBCC00);
          `CHECK_EQUAL(ready, 1);
       end
       `TEST_CASE("three_cycles_rst") begin
          next_cycle();
+         `CHECK_EQUAL(inst, 'h00000000);
          next_cycle();
+         `CHECK_EQUAL(inst, 'hAA000000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAABB0000);
          rst <= 1;
+         next_cycle();
+         rst <= 0;
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         `CHECK_EQUAL(ready, 0);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABB0000);
          `CHECK_EQUAL(ready, 0);
-      end
-      `TEST_CASE("four_cycles") begin
          next_cycle();
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         `CHECK_EQUAL(ready, 0);
          next_cycle();
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         `CHECK_EQUAL(ready, 0);
          next_cycle();
+         `CHECK_EQUAL(inst, 'hAABBCC00);
          `CHECK_EQUAL(ready, 1);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABBCCDD);
          `CHECK_EQUAL(ready, 0);
       end
-      `TEST_CASE("five_cycles") begin
+      `TEST_CASE("four_cycles") begin
+         `CHECK_EQUAL(started, 0);
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(inst, 'h00000000);
          next_cycle();
+         `CHECK_EQUAL(started, 1);
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(inst, 'h00000000);
          next_cycle();
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(inst, 'hAA000000);
          next_cycle();
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(inst, 'hAABBCC00);
          next_cycle();
          `CHECK_EQUAL(inst, 'hAABBCCDD);
          `CHECK_EQUAL(ready, 0);
-         pc <= pc + 4;
+      end
+      `TEST_CASE("five_cycles") begin
+         `CHECK_EQUAL(started, 0);
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(inst, 'h00000000);
+         next_cycle();
+         `CHECK_EQUAL(started, 1);
+         `CHECK_EQUAL(inst, 'h00000000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAA000000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAABB0000);
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAABBCC00);
+         `CHECK_EQUAL(ready, 1);
+         pc = pc+4;
+         next_cycle();
+         `CHECK_EQUAL(inst, 'hAABBCCDD);
+         `CHECK_EQUAL(ready, 0);
          next_cycle();
          `CHECK_EQUAL(inst, 'h00BBCCDD);
          `CHECK_EQUAL(ready, 0);

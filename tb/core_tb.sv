@@ -24,30 +24,33 @@ module core_tb;
    task FETCH(input [31:0] inst);
       `CHECK_EQUAL(core.state, FETCH_STATE);
 
+      `CHECK_EQUAL(addr, core.pc);
+      next_cycle();
+
       // 1st cycle of fetch
       data_in = inst[31:24];
-      `CHECK_EQUAL(addr, core.pc);
+      `CHECK_EQUAL(addr, core.pc+1);
       next_cycle();
       `CHECK_EQUAL(core.state, FETCH_STATE);
       `CHECK_EQUAL(core.inst[31:24], inst[31:24])
 
       // 2nd cycle of fetch
       data_in = inst[23:16];
-      `CHECK_EQUAL(addr, core.pc+1);
+      `CHECK_EQUAL(addr, core.pc+2);
       next_cycle();
       `CHECK_EQUAL(core.state, FETCH_STATE);
       `CHECK_EQUAL(core.inst[23:16], inst[23:16]);
 
       // 3rd cycle of fetch
       data_in = inst[15:8];
-      `CHECK_EQUAL(addr, core.pc+2);
+      `CHECK_EQUAL(addr, core.pc+3);
       next_cycle();
       `CHECK_EQUAL(core.state, FETCH_STATE);
       `CHECK_EQUAL(core.inst[15:8], inst[15:8]);
 
       // 4 bytes(full instruction) fetched
       data_in = inst[7:0];
-      `CHECK_EQUAL(addr, core.pc+3);
+      `CHECK_EQUAL(addr, core.pc+4);
       next_cycle();
       `CHECK_EQUAL(core.state, EXECUTE_STATE);
       `CHECK_EQUAL(core.inst[7:0], inst[7:0]);
@@ -132,29 +135,37 @@ module core_tb;
          `CHECK_EQUAL(core.pc, 0);
       end
       `TEST_CASE("ADDI") begin
+         // vunit: .xd
          inst_buff = IMM_OP(1, 1, "+", 21);
+
+         `CHECK_EQUAL(core.pc, 0);
+         `CHECK_EQUAL(addr, 0);
+         next_cycle();
+         `CHECK_EQUAL(core.pc, 0);
+         `CHECK_EQUAL(addr, 1);
+
          // 1st cycle of fetch
          data_in = inst_buff[31:24];
          next_cycle();
          `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(addr, 1);
          `CHECK_EQUAL(core.pc, 0);
+         `CHECK_EQUAL(addr, 2);
          `CHECK_EQUAL(core.inst, inst_buff & 32'hFF000000)
 
          // 2nd cycle of fetch
          data_in = inst_buff[23:16];
          next_cycle();
          `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(addr, 2);
          `CHECK_EQUAL(core.pc, 0);
+         `CHECK_EQUAL(addr, 3);
          `CHECK_EQUAL(core.inst, inst_buff & 32'hFFFF0000);
 
          // 3rd cycle of fetch
          data_in = inst_buff[15:8];
          next_cycle();
          `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(addr, 3);
          `CHECK_EQUAL(core.pc, 0);
+         `CHECK_EQUAL(addr, 4);
          `CHECK_EQUAL(core.inst, inst_buff & 32'hFFFFFF00);
 
          // 4 bytes(full instruction) fetched
@@ -197,6 +208,7 @@ module core_tb;
       .i_mem_data(data_in),
       .o_mem_write(wr),
 
-      .o_invalid_inst(invalid_inst)
+      .o_invalid_inst(invalid_inst),
+      .o_pc()
      );
 endmodule

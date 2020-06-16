@@ -8,6 +8,7 @@ module execute_tb;
 
    wire               wr;
    wire [31:0]        addr;
+   reg [`DATA_WIDTH-1:0] data_sim;
    reg [`DATA_WIDTH-1:0] data;
    wire [`DATA_WIDTH-1:0] wr_data;
 
@@ -22,14 +23,18 @@ module execute_tb;
    // Simulate memory.
    always_comb begin
       case (addr)
-        0: data = 'hAA;
-        1: data = 'hBB;
-        2: data = 'hCC;
-        3: data = 'hDD;
-        4: data = 'h44;
-        5: data = 'h55;
-        default: data = 0;
+        0: data_sim = 'hAA;
+        1: data_sim = 'hBB;
+        2: data_sim = 'hCC;
+        3: data_sim = 'hDD;
+        4: data_sim = 'h44;
+        5: data_sim = 'h55;
+        default: data_sim = 0;
       endcase
+   end
+
+   always @(posedge clk) begin
+      data <= data_sim;
    end
 
    task next_cycle();
@@ -496,14 +501,17 @@ module execute_tb;
       `TEST_CASE("LB positive") begin
          // LB x8, [x0 + 4]
          inst <= I(`LOAD, `LB, 8, 0, 4);
+         #1;
          `CHECK_EQUAL(wr_data, 0);
-         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(addr, 4);
          `CHECK_EQUAL(execute.X[8], 'h00);
          next_cycle();
          `CHECK_EQUAL(wr_data, 0);
-         `CHECK_EQUAL(addr, 4);
-         `CHECK_EQUAL(execute.X[8], 'h00000044);
+         `CHECK_EQUAL(addr, 5);
+         `CHECK_EQUAL(execute.X[8], 0);
          `CHECK_EQUAL(ready, 1);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'h00000044);
       end
       `TEST_CASE("LB negative") begin
          // LB x8, [x0 + 2]
@@ -514,8 +522,11 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 2);
          next_cycle();
+         `CHECK_EQUAL(addr, 3);
          `CHECK_EQUAL(ready, 1);
          `CHECK_EQUAL(wr_data, 0);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
          `CHECK_EQUAL(execute.X[8], 'hFFFFFFCC);
       end
       `TEST_CASE("LBU") begin
@@ -527,7 +538,9 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 1);
          next_cycle();
+         `CHECK_EQUAL(addr, 2);
          `CHECK_EQUAL(wr_data, 0);
+         next_cycle();
          `CHECK_EQUAL(execute.X[1], 'hBB);
       end
       `TEST_CASE("LH positive") begin
@@ -538,13 +551,17 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 4);
          next_cycle();
-         `CHECK_EQUAL(execute.X[2], 'h4400);
-         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(execute.X[2], '0);
+         `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(addr, 5);
          next_cycle();
-         `CHECK_EQUAL(execute.X[2], 'h00004455);
+         `CHECK_EQUAL(execute.X[2], 32'h00004400);
+         `CHECK_EQUAL(addr, 6);
+         `CHECK_EQUAL(ready, 1);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[2], 32'h00004455);
          `CHECK_EQUAL(ready, 0);
-      end // always
+      end
       `TEST_CASE("LH negative") begin
          // LH x2, [x0 + 0]
          inst <= I(`LOAD, `LH, 2, 0, 0);
@@ -553,9 +570,13 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 0);
          next_cycle();
+         `CHECK_EQUAL(execute.X[2], 'h0000);
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(addr, 1);
+         next_cycle();
          `CHECK_EQUAL(execute.X[2], 'hAA00);
          `CHECK_EQUAL(ready, 1);
-         `CHECK_EQUAL(addr, 1);
+         `CHECK_EQUAL(addr, 2);
          next_cycle();
          `CHECK_EQUAL(execute.X[2], 'hFFFFAABB);
          `CHECK_EQUAL(ready, 0);
@@ -568,9 +589,13 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 3);
          next_cycle();
-         `CHECK_EQUAL(execute.X[1], 'hDD00);
-         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(execute.X[1], 0);
+         `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(addr, 4);
+         next_cycle();
+         `CHECK_EQUAL(ready, 1);
+         `CHECK_EQUAL(addr, 5);
+         `CHECK_EQUAL(execute.X[1], 'hDD00);
          next_cycle();
          `CHECK_EQUAL(execute.X[1], 'hDD44);
          `CHECK_EQUAL(ready, 0);
@@ -583,17 +608,21 @@ module execute_tb;
          #1
          `CHECK_EQUAL(addr, 1);
          next_cycle();
-         `CHECK_EQUAL(execute.X[15], 'hBB000000);
+         `CHECK_EQUAL(execute.X[15], 'h00000000);
          `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(addr, 2);
          next_cycle();
-         `CHECK_EQUAL(execute.X[15], 'hBBCC0000);
+         `CHECK_EQUAL(execute.X[15], 'hBB000000);
          `CHECK_EQUAL(ready, 0);
          `CHECK_EQUAL(addr, 3);
          next_cycle();
+         `CHECK_EQUAL(execute.X[15], 'hBBCC0000);
+         `CHECK_EQUAL(ready, 0);
+         `CHECK_EQUAL(addr, 4);
+         next_cycle();
          `CHECK_EQUAL(execute.X[15], 'hBBCCDD00);
          `CHECK_EQUAL(ready, 1);
-         `CHECK_EQUAL(addr, 4);
+         `CHECK_EQUAL(addr, 5);
          next_cycle();
          `CHECK_EQUAL(execute.X[15], 'hBBCCDD44);
          `CHECK_EQUAL(ready, 0);
