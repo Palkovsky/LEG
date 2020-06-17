@@ -21,7 +21,7 @@ module LEG(
    wire                   cpu_write;
 	wire [31:0]            pc;
 
-	assign o_buzzer = pc > 16;
+	assign o_buzzer = 1;
 
    core core
      (
@@ -94,10 +94,15 @@ module LEG(
    reg [`DATA_WIDTH-1:0]  mmio_data_in = 0;
    reg [`DATA_WIDTH-1:0]  mmio_data_out;
 
+   reg                    uart_rx_read = 0;
+   wire                   uart_rx_avail;
+   wire [`DATA_WIDTH-1:0] uart_rx_data;
+
    always_comb begin
       // Defaults
       fifo_write_enabled <= 0;
       fifo_data_in <= 0;
+      uart_rx_read <= 0;
 		  mmio_data_in <= 0;
 
       if (mmio_access) begin
@@ -112,6 +117,17 @@ module LEG(
               end
               else begin
                  mmio_data_in <= { 3'b0, fifo_free };
+              end
+           end
+           32'hFFFFFFFE: begin
+              if (!mmio_write && uart_rx_avail) begin
+                 mmio_data_in <= uart_rx_data;
+                 uart_rx_read <= 1;
+              end
+           end
+           32'hFFFFFFFD: begin
+              if (!mmio_write) begin
+                 mmio_data_in <= { 7'b0, uart_rx_avail };
               end
            end
          endcase
@@ -147,14 +163,18 @@ module LEG(
 
 	  uartwriter uartwriter
 		(
-			.clk(i_clk),
-			.rst(i_rst),
+		 .clk(i_clk),
+		 .rst(i_rst),
 
-			.rx(rx),
-			.tx(tx),
+		 .rx(rx),
+		 .tx(tx),
 
-			.fifo_empty(fifo_empty),
-			.fifo_data(fifo_data_out),
-			.fifo_read_en(fifo_read_enabled)
+		 .fifo_empty(fifo_empty),
+		 .fifo_data(fifo_data_out),
+		 .fifo_read_en(fifo_read_enabled),
+
+     .rx_read(uart_rx_read),
+     .rx_available(uart_rx_avail),
+     .rx_data(uart_rx_data)
 		);
 endmodule

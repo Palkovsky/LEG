@@ -2,15 +2,21 @@
 
 module uartwriter
  (
-  input                   clk,
-  input                   rst,
+  input                        clk,
+  input                        rst,
 
-  input                   rx,
-  output                  tx,
+  input                        rx,
+  output                       tx,
 
-  input                   fifo_empty,
-  input [`DATA_WIDTH-1:0] fifo_data,
-  output reg              fifo_read_en = 0
+  // Transmiter
+  input                        fifo_empty,
+  input [`DATA_WIDTH-1:0]      fifo_data,
+  output reg                   fifo_read_en = 0,
+
+  // Receiver
+  input                        rx_read,
+  output reg                   rx_available = 0,
+  output reg [`DATA_WIDTH-1:0] rx_data
  );
 
    localparam STATE_SIZE = 3;
@@ -64,6 +70,20 @@ module uartwriter
       end
    end
 
+   wire received, recv_err, receiving;
+   reg [7:0] rx_byte;
+
+   always @(posedge clk) begin
+      if (received && !recv_err) begin
+         rx_available <= 1;
+         rx_data <= rx_byte;
+      end
+		else if (rx_read) begin
+         rx_available <= 0;
+         rx_data <= 0;
+      end
+   end
+
    uart uart
      (
       .clk(clk),
@@ -72,10 +92,10 @@ module uartwriter
       .tx(tx),
       .transmit(transmit),
       .tx_byte(transmit_byte),
-      .received(),
-      .rx_byte(),
-      .is_receiving(),
+      .received(received),
+      .rx_byte(rx_byte),
+      .is_receiving(receiving),
       .is_transmitting(transmitting),
-      .recv_error()
+      .recv_error(recv_err)
      );
 endmodule
