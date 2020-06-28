@@ -1,101 +1,175 @@
 `include "common.svh"
 
 module uartwriter
+ #(
+   TX_FIFO_DEPTH
+ )
  (
-  input                        clk,
-  input                        rst,
+  input                        i_clk,
+  input                        i_rst,
 
-  input                        rx,
-  output                       tx,
+  input                        i_rx,
+  output                       o_tx,
 
-  // Transmiter
-  input                        fifo_empty,
-  input [`DATA_WIDTH-1:0]      fifo_data,
-  output reg                   fifo_read_en = 0,
+  // TX
+  input [7:0]                  i_data_in,
+  input                        i_wr_valid,
+  output reg                   o_wr_ready,
+  output reg [TX_FIFO_DEPTH:0] o_tx_free,
 
-  // Receiver
-  input                        rx_read,
-  output reg                   rx_available = 0,
-  output reg [`DATA_WIDTH-1:0] rx_data
+  // RX
+  output reg                   o_rx_present,
+  output reg [7:0]             o_data_out,
+  output reg                   o_rd_valid,
+  input                        i_rd_ready
  );
-
-   localparam STATE_SIZE = 3;
    localparam
-     IDLE = 3'h0,
-     FETCHING = 3'h1,
-     SEND_START_WAIT = 3'h2,
-     SENDING = 3'h3;
+     TX_STATE_SIZE = 3,
+     TX_IDLE = 3'h0,
+     TX_FETCHING = 3'h1,
+     TX_SENDING = 3'h2;
 
-   reg [STATE_SIZE-1:0]   state = IDLE;
-   reg                    transmit = 0;
-   reg [7:0]              transmit_byte = 0;
-   wire                   transmitting;
+   reg [TX_STATE_SIZE-1:0]     tx_state = TX_IDLE;
 
-   always @(posedge clk) begin
-      if (rst) begin
-         state <= IDLE;
-         transmit <= 0;
-         transmit_byte <= 0;
+   // TX FIFO
+   // Reading
+   wire [7:0]                  tx_fifo_out;
+   wire                        tx_fifo_empty;
+   reg                         tx_fifo_rd = 0;
+   // Writing
+   reg [7:0]                   tx_fifo_in = 0;
+   wire                        tx_fifo_full;
+   reg                         tx_fifo_wr = 0;
+
+   // UART TX
+   reg                         tx_trigger = 0;
+   reg [7:0]                   tx_byte = 0;
+   wire                        tx_transmitting;
+
+   /*
+    * TX and FIFO reading
+    */
+   always @(posedge i_clk) begin
+      if (i_rst) begin
+         tx_state <= TX_IDLE;
+         {
+          tx_byte,
+          tx_trigger
+         } <= 0;
       end
       else begin
-         case (state)
-           IDLE: begin
-              if (!fifo_empty) begin
-                 state <= FETCHING;
-                 fifo_read_en <= 1;
+         // TX
+         case (tx_state)
+           TX_IDLE: begin
+              // tx_fifo_rd will be pulled high when fifo non-empty
+              if (tx_fifo_rd) begin
+                 tx_state <= TX_FETCHING;
               end
            end
-           FETCHING: begin
-              transmit_byte <= fifo_data;
-              fifo_read_en <= 0;
-              state <= SEND_START_WAIT;
-              transmit <= 1;
+           TX_FETCHING: begin
+              tx_byte <= tx_fifo_out;
+              tx_trigger <= 1;
+              tx_state <= TX_SENDING;
            end
-           SEND_START_WAIT: begin
-              if (!transmitting) begin
-                 transmit <= 1;
-              end
-              else begin
-                 transmit <= 0;
-                 state <= SENDING;
-              end
-           end
-           SENDING: begin
-              if (!transmitting) begin
-                 state <= IDLE;
-                 transmit_byte <= 0;
-              end
+           TX_SENDING: begin
+              tx_trigger <= 0;
+              if (!tx_transmitting && !tx_trigger)
+                tx_state <= TX_IDLE;
            end
       endcase
       end
    end
 
-   wire received, recv_err, receiving;
-   reg [7:0] rx_byte;
+   always_comb begin
+      tx_fifo_rd <= 0;
+      if (tx_state == TX_IDLE)
+        tx_fifo_rd <= (tx_fifo_empty) ? 1'b0 : 1'b1;
+   end
 
-   always @(posedge clk) begin
-      if (received && !recv_err) begin
-         rx_available <= 1;
-         rx_data <= rx_byte;
+   /*
+    * FIFO writing
+    */
+   always @(posedge i_clk) begin
+      if (i_rst) begin
+         o_wr_ready <= 0;
       end
-		else if (rx_read) begin
-         rx_available <= 0;
-         rx_data <= 0;
+      else begin
+         o_wr_ready <= tx_fifo_wr;
       end
    end
 
+   always_comb begin
+      { tx_fifo_in, tx_fifo_wr } <= 0;
+      // Valid high, not yet ACKnowledged with ready and space available.
+      if (i_wr_valid && !o_wr_ready && !tx_fifo_full) begin
+         tx_fifo_in <= i_data_in;
+         tx_fifo_wr <= 1;
+      end
+   end
+
+   // UART RX
+   wire [7:0]                  rx_byte;
+   reg [7:0]                   rx_buff = 0;
+   reg                         rx_present = 0;
+   wire                        rx_received;
+   wire                        rx_receiving;
+   wire                        rx_err;
+   assign o_rx_present = rx_present;
+
+   /*
+    * RX
+    */
+   always @(posedge i_clk) begin
+      if (i_rst) begin
+         { rx_buff, rx_present } <= 0;
+      end
+      else begin
+         if (i_rd_ready && o_rd_valid)
+           { rx_buff, rx_present } <= 0;
+
+         // New byte received. This will overwrite the buffer.
+         if (rx_received && !rx_err)
+            { rx_buff, rx_present } <= { rx_byte, 1'b1 };
+      end
+   end
+
+   always_comb begin
+      { o_data_out, o_rd_valid } <= { rx_buff, rx_present };
+   end
+
+
+   // 16x8 TX FIFO
+   fifo
+     #(.FIFO_WIDTH(8), .FIFO_DEPTH(TX_FIFO_DEPTH))
+   tx_fifo
+     (
+      .clk(i_clk),
+      .reset(i_rst),
+
+      .data_out(tx_fifo_out),
+      .fifo_empty(tx_fifo_empty),
+      .read(tx_fifo_rd),
+
+      .data_in(tx_fifo_in),
+      .fifo_full(tx_fifo_full),
+      .write(tx_fifo_wr),
+
+      .fifo_counter(),
+      .fifo_free(o_tx_free)
+     );
+
    uart uart
      (
-      .clk(clk),
-      .rst(rst),
-      .rx(rx),
-      .tx(tx),
-      .transmit(transmit),
-      .tx_byte(transmit_byte),
-      .received(received),
+      .clk(i_clk),
+      .rst(i_rst),
+      .rx(i_rx),
+      .tx(o_tx),
+      .transmit(tx_trigger),
+      .tx_byte(tx_byte),
+      .is_transmitting(tx_transmitting),
+      .received(rx_received),
       .rx_byte(rx_byte),
-      .is_receiving(receiving),
-      .is_transmitting(transmitting),
-      .recv_error(recv_err)
+      .is_receiving(rx_receiving),
+      .recv_error(rx_err)
      );
 endmodule

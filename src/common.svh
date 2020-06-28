@@ -2,8 +2,9 @@
  `define COMMON
 
  // Sizes
- `define DATA_WIDTH 8
+ `define DATA_WIDTH 32
  `define BRAM_WIDTH 12
+ `define TX_FIFO_DEPTH 4
 
  // OPCODE definitions
  `define LUI      7'b0110111

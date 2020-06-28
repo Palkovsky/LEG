@@ -7,14 +7,14 @@ module bram_tb;
    reg                clk = 0;
    reg                wr = 0;
    reg [31:0]         addr = 0;
-   reg [`DATA_WIDTH-1:0] data_in = 0;
-   wire [`DATA_WIDTH-1:0] data_out;
-   wire [11:0]            addr_low12 = addr[11:0];
+   reg [31:0]         data_in = 0;
+   wire [31:0]        data_out;
+   wire [11:0]        addr_low12 = addr[11:0];
 
    task write
      (
-      input [31:0]            arg_addr,
-      input [`DATA_WIDTH-1:0] arg_data
+      input [31:0] arg_addr,
+      input [31:0] arg_data
      );
       wr = 1;
       addr = arg_addr;
@@ -28,7 +28,7 @@ module bram_tb;
    task assert_read
      (
       input [31:0]            arg_addr,
-      input [`DATA_WIDTH-1:0] arg_expected
+      input [31:0] arg_expected
      );
       wr = 0;
       addr = arg_addr;
@@ -44,16 +44,9 @@ module bram_tb;
       end
       `TEST_CASE("test_write_multiple_bytes") begin
          write(0, 'hAA);
-         write(1, 'hBB);
+         write(1, 'hAABBCCDD);
          assert_read(0, 'hAA);
-         assert_read(1, 'hBB);
-         assert_read(1, 'hBB);
-      end
-      `TEST_CASE("test_write_multiple_same_port") begin
-         write(0, 'hAA);
-         write(1, 'hBB);
-         assert_read(0, 'hAA);
-         assert_read(1, 'hBB);
+         assert_read(1, 'hAABBCCDD);
       end
       `TEST_CASE("test_write_loop") begin
          for (int i=0; i<32; i++) begin
@@ -75,8 +68,8 @@ module bram_tb;
    // Init module
    bram
    #(
-     .DATA_WIDTH(`DATA_WIDTH),
-     .ADDR_WIDTH(12)
+     .DATA_WIDTH(32),
+     .ADDR_WIDTH(10)
    ) bram_mod
    (
     .i_clk(clk),

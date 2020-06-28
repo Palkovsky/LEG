@@ -5,73 +5,96 @@ module core (
 	input                        i_rst,
 
   // Memory interface
-  output reg [31:0]            o_mem_addr,
-  output reg [`DATA_WIDTH-1:0] o_mem_data,
-  input [`DATA_WIDTH-1:0]      i_mem_data,
-  output reg                   o_mem_write,
+  output reg [31:0]            o_addr,
+  // Writes
+  output reg [`DATA_WIDTH-1:0] o_data,
+  output reg                   o_wr_valid,
+  input                        i_wr_ready,
+  // Reads
+  input [`DATA_WIDTH-1:0]      i_data,
+  input                        i_rd_valid,
+  output reg                   o_rd_ready,
 
   // Control information
-  output                       o_invalid_inst,
-  output [31:0]                o_pc
+  output                       o_invalid_inst
 );
-   localparam SIZE = 3;
-   localparam FETCH_STATE = 3'b000, EXECUTE_STATE = 3'b001;
+   localparam
+     STATE_SZ = 3,
+     FETCH_STATE = 3'b000,
+     EXEC_STATE = 3'b001;
 
    // PC register.
-   reg [31:0]             pc = 0;
-	assign o_pc = pc;
+   reg [31:0]                  pc = 0;
 
-   // Currently fetched/executed instruction.
-   reg [31:0]             inst;
 
    // Control signals.
-   reg [SIZE-1:0]         state = FETCH_STATE;
+   reg [STATE_SZ-1:0]     state = FETCH_STATE;
    wire                   pc_change;
    wire [31:0]            pc_change_new;
 
-   wire                   fetch_ready;
-   wire                   fetch_started;
    wire                   fetch_rst;
-   wire [31:0]            fetch_mem_addr;
-   reg [`DATA_WIDTH-1:0]  fetch_mem_in;
+   wire                   fetch_stall;
+   wire [31:0]            fetch_addr;
+   reg                    fetch_valid;
+   wire                   fetch_ready;
+   reg [`DATA_WIDTH-1:0]  fetch_data_in;
+   wire                   fetch_finished;
 
-   wire                   execute_ready;
-   wire                   execute_rst;
-   wire [31:0]            execute_mem_addr;
-   reg [`DATA_WIDTH-1:0]  execute_mem_in;
-   wire [`DATA_WIDTH-1:0] execute_mem_out;
-   wire                   execute_mem_write;
+   wire                   exec_rst;
+   wire [31:0]            exec_addr;
+   reg [`DATA_WIDTH-1:0]  exec_data_in;
+   reg                    exec_rd_valid;
+   wire                   exec_rd_ready;
+   wire [`DATA_WIDTH-1:0] exec_data_out;
+   wire                   exec_wr_valid;
+   reg                    exec_wr_ready;
+   wire                   exec_finished;
 
-   assign fetch_rst   = i_rst || state != FETCH_STATE;
-   assign execute_rst = i_rst || state != EXECUTE_STATE;
+   reg [31:0]             inst;
+
+   assign fetch_rst = i_rst;
+   assign fetch_stall = state != FETCH_STATE;
+   assign exec_rst = i_rst || state != EXEC_STATE;
 
    task FETCH_SEQ();
-      if (fetch_ready && fetch_started)
-        state <= EXECUTE_STATE;
+      if (fetch_finished)
+         state <= EXEC_STATE;
    endtask
 
-   task EXECUTE_SEQ();
-      if (execute_ready) begin
+   task EXEC_SEQ();
+      if (exec_finished) begin
          state <= FETCH_STATE;
          pc <= (pc_change) ? pc_change_new : pc+4;
       end
    endtask
 
+   // TODO: Address line multiplexer.
    always_comb begin
+      { o_addr,
+        o_rd_ready,
+        o_data,
+        o_wr_valid,
+        fetch_valid,
+        fetch_data_in,
+        exec_data_in,
+        exec_rd_valid,
+        exec_wr_ready
+      } <= 0;
+
       case (state)
         FETCH_STATE: begin
-           execute_mem_in <= 0;
-           fetch_mem_in <= i_mem_data;
-           o_mem_addr <= fetch_mem_addr;
-           o_mem_data <= 0;
-           o_mem_write <= 0;
+           o_addr <= fetch_addr;
+           // Read
+           { fetch_data_in, fetch_valid, o_rd_ready } <= { i_data, i_rd_valid, fetch_ready };
+           // Write
+           { o_data, o_wr_valid } <= 0;
         end
-        EXECUTE_STATE: begin
-           fetch_mem_in <= 0;
-           execute_mem_in <= i_mem_data;
-           o_mem_addr <= execute_mem_addr;
-           o_mem_data <= execute_mem_out;
-           o_mem_write <= execute_mem_write;
+        EXEC_STATE: begin
+           o_addr <= exec_addr;
+           // Read
+           { exec_data_in, exec_rd_valid, o_rd_ready } <= { i_data, i_rd_valid, exec_rd_ready };
+           // Write
+           { o_data, o_wr_valid, exec_wr_ready } <= { exec_data_out, exec_wr_valid, i_wr_ready };
         end
       endcase
    end
@@ -83,8 +106,8 @@ module core (
       end
       else begin
          case (state)
-           FETCH_STATE:   FETCH_SEQ();
-           EXECUTE_STATE: EXECUTE_SEQ();
+           FETCH_STATE: FETCH_SEQ();
+           EXEC_STATE:  EXEC_SEQ();
          endcase
       end
    end
@@ -93,33 +116,36 @@ module core (
      (
       .i_clk(i_clk),
       .i_rst(fetch_rst),
-
+      .i_stall(fetch_stall),
       .i_pc(pc),
 
-      .o_mem_addr(fetch_mem_addr),
-      .i_mem_data(fetch_mem_in),
+      .o_addr(fetch_addr),
+      .i_data(fetch_data_in),
+      .i_valid(fetch_valid),
+      .o_ready(fetch_ready),
 
       .o_inst(inst),
-      .o_ready(fetch_ready),
-      .o_started(fetch_started)
+      .o_finished(fetch_finished)
      );
 
    execute execute
      (
 	    .i_clk(i_clk),
-	    .i_rst(execute_rst),
-
+	    .i_rst(exec_rst),
       .i_inst(inst),
 
-      .o_mem_addr(execute_mem_addr),
-      .i_mem_data(execute_mem_in),
-      .o_mem_write(execute_mem_write),
-      .o_mem_data(execute_mem_out),
+      .o_addr(exec_addr),
+      .o_data(exec_data_out),
+      .o_wr_valid(exec_wr_valid),
+      .i_wr_ready(exec_wr_ready),
+      .i_data(exec_data_in),
+      .i_rd_valid(exec_rd_valid),
+      .o_rd_ready(exec_rd_ready),
 
       .i_pc(pc),
       .o_pc_change(pc_change),
       .o_new_pc(pc_change_new),
-      .o_ready(execute_ready),
+      .o_finished(exec_finished),
       .o_invalid_inst(o_invalid_inst)
     );
 endmodule

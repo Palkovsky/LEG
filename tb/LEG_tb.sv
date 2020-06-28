@@ -14,7 +14,6 @@ module LEG_tb;
 
    wire               invalid_inst;
    wire               invalid_addr;
-   wire               buzzer;
 
    task next_cycle();
       @(posedge clk);
@@ -46,7 +45,6 @@ module LEG_tb;
       .tx(tx),
       // Error signals
       .o_invalid_inst(invalid_inst),
-      .o_invalid_addr(invalid_addr),
-      .o_buzzer(buzzer)
+      .o_invalid_addr(invalid_addr)
      );
 endmodule

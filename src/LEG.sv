@@ -10,171 +10,145 @@ module LEG(
 
   // Error signals
   output o_invalid_inst,
-  output o_invalid_addr,
-
-  output o_buzzer
+  output o_invalid_addr
 );
 
+   // CPU bus
    wire [31:0] cpu_addr;
+   // Writing
    wire [`DATA_WIDTH-1:0] cpu_data_out;
-   wire [`DATA_WIDTH-1:0]  cpu_data_in;
-   wire                   cpu_write;
-	wire [31:0]            pc;
-
-	assign o_buzzer = 1;
+   wire                   cpu_wr_valid;
+   reg                    cpu_wr_ready;
+   // Reading
+   reg [`DATA_WIDTH-1:0]  cpu_data_in;
+   reg                    cpu_rd_valid;
+   wire                   cpu_rd_ready;
 
    core core
      (
 	    .i_clk(i_clk),
       .i_rst(i_rst),
 
-      .o_mem_addr(cpu_addr),
-      .o_mem_data(cpu_data_out),
-      .i_mem_data(cpu_data_in),
-      .o_mem_write(cpu_write),
+      .o_addr(cpu_addr),
+      .o_data(cpu_data_out),
+      .o_wr_valid(cpu_wr_valid),
+      .i_wr_ready(cpu_wr_ready),
+      .i_data(cpu_data_in),
+      .i_rd_valid(cpu_rd_valid),
+      .o_rd_ready(cpu_rd_ready),
 
-      .o_invalid_inst(o_invalid_inst),
-		  .o_pc(pc)
+      .o_invalid_inst(o_invalid_inst)
      );
 
-   reg [`DATA_WIDTH-1:0]  bram_data_in;
-   reg                    bram_write;
-   reg [`DATA_WIDTH-1:0]  bram_data_out;
-   reg [31:0]             bram_addr;
-   wire [`BRAM_WIDTH-1:0] bram_addr_low = bram_addr[`BRAM_WIDTH-1:0];
+   reg [7:0]              uart_in;
+   reg                    uart_wr_valid;
+   wire                   uart_wr_ready;
+   wire [`TX_FIFO_DEPTH:0] uart_tx_free;
 
-   bram
-     #(
-       .DATA_WIDTH(`DATA_WIDTH),
-       .ADDR_WIDTH(`BRAM_WIDTH)
-     ) bram
+   wire                      uart_rx_present;
+   wire [7:0]                uart_out;
+   wire                      uart_rd_valid;
+   reg                       uart_rd_ready;
+
+   uartwriter #(.TX_FIFO_DEPTH(`TX_FIFO_DEPTH)) uart
      (
       .i_clk(i_clk),
-      .i_data(bram_data_in),
-      .i_addr(bram_addr_low),
-      .i_write(bram_write),
-      .o_data(bram_data_out)
+      .i_rst(i_rst),
+
+      .i_rx(rx),
+      .o_tx(tx),
+
+      .i_data_in(uart_in),
+      .i_wr_valid(uart_wr_valid),
+      .o_wr_ready(uart_wr_ready),
+      .o_tx_free(uart_tx_free),
+
+      .o_rx_present(uart_rx_present),
+      .o_data_out(uart_out),
+      .o_rd_valid(uart_rd_valid),
+      .i_rd_ready(uart_rd_ready)
      );
 
-   reg [`DATA_WIDTH-1:0]  fifo_data_out;
-   reg                    fifo_empty;
-   reg                    fifo_read_enabled;
-
-   reg [`DATA_WIDTH-1:0]  fifo_data_in;
-   reg                    fifo_full;
-   reg                    fifo_write_enabled;
-
-   reg [4:0]              fifo_free;
-
-   fifo
-     #(
-       .DATA_WIDTH(`DATA_WIDTH),
-       .ADDR_WIDTH(4)
-       ) fifo
-       (
-        .clk(i_clk),
-        .rst(i_rst),
-
-        // Read port
-        .data_out(fifo_data_out),
-        .empty_out(fifo_empty),
-        .read_en_in(fifo_read_enabled),
-
-        // Write port
-        .data_in(fifo_data_in),
-        .full_out(fifo_full),
-        .write_en_in(fifo_write_enabled),
-
-        .free(fifo_free)
-       );
-
-   reg                    mmio_access;
-   reg [31:0]             mmio_addr;
-   reg                    mmio_write;
+   // MMIO
+   wire [31:0]            mmio_addr;
+   // Writing
+   wire [`DATA_WIDTH-1:0] mmio_data_out;
+   wire                   mmio_wr_valid;
+   reg                    mmio_wr_ready = 0;
+   // Reading
    reg [`DATA_WIDTH-1:0]  mmio_data_in = 0;
-   reg [`DATA_WIDTH-1:0]  mmio_data_out;
-
-   reg                    uart_rx_read = 0;
-   wire                   uart_rx_avail;
-   wire [`DATA_WIDTH-1:0] uart_rx_data;
+   reg                    mmio_rd_valid = 0;
+   wire                   mmio_rd_ready;
 
    always_comb begin
-      // Defaults
-      fifo_write_enabled <= 0;
-      fifo_data_in <= 0;
-      uart_rx_read <= 0;
-		  mmio_data_in <= 0;
+      {
+       mmio_data_in,
+       mmio_rd_valid,
+       mmio_wr_ready,
+       uart_in,
+       uart_wr_valid,
+       uart_rd_ready
+       } <= 0;
 
-      if (mmio_access) begin
-         // UART FIFO
-         case (mmio_addr)
-           32'hFFFFFFFF: begin
-              if (mmio_write) begin
-                 if (!fifo_full) begin
-                    fifo_write_enabled <= 1;
-                    fifo_data_in <= mmio_data_out;
-                 end
-              end
-              else begin
-                 mmio_data_in <= { 3'b0, fifo_free };
-              end
+      case (mmio_addr[7:0])
+        // UART TX
+        'hFF: begin
+           // On write, pass signals to uart TX.
+           if (mmio_wr_valid)
+             { uart_in, uart_wr_valid, mmio_wr_ready } <= { mmio_data_out[7:0], 1'b1, uart_wr_ready };
+
+           // On read return free space in FIFO
+           if (mmio_rd_ready) begin
+              mmio_rd_valid <= 1;
+              mmio_data_in <= uart_tx_free;
            end
-           32'hFFFFFFFE: begin
-              if (!mmio_write && uart_rx_avail) begin
-                 mmio_data_in <= uart_rx_data;
-                 uart_rx_read <= 1;
-              end
+        end
+        // UART RX -> Read byte
+        'hFE: begin
+           if (mmio_rd_ready) begin
+              mmio_data_in <= uart_out;
+              { mmio_rd_valid, uart_rd_ready } <= { uart_rd_valid, 1'b1 };
+				  //mmio_data_in <= 'h41;
+				  //mmio_rd_valid <= 1;
+
            end
-           32'hFFFFFFFD: begin
-              if (!mmio_write) begin
-                 mmio_data_in <= { 7'b0, uart_rx_avail };
-              end
+        end
+        // UART RX -> Check if byte present
+        'hFD: begin
+           if (mmio_rd_ready) begin
+              mmio_rd_valid <= 1;
+              mmio_data_in <= uart_rx_present;
+				  //mmio_data_in <= 1;
            end
-         endcase
-      end
+        end
+      endcase
    end
 
    memmap memmap
      (
-      .clk(i_clk),
+      .i_clk(i_clk),
+      .i_rst(i_rst),
 
-      // CPU interface
-      .cpu_addr(cpu_addr),
-      .cpu_write(cpu_write),
-      .cpu_data_in(cpu_data_in),
-      .cpu_data_out(cpu_data_out),
+      .i_cpu_addr(cpu_addr),
+      .i_cpu_data(cpu_data_out),
+      .i_wr_valid(cpu_wr_valid),
+      .o_wr_ready(cpu_wr_ready),
+      .o_cpu_data(cpu_data_in),
+      .o_rd_valid(cpu_rd_valid),
+      .i_rd_ready(cpu_rd_ready),
 
-      // BRAM interface
-      .bram_addr(bram_addr),
-      .bram_write(bram_write),
-      .bram_data_in(bram_data_in),
-      .bram_data_out(bram_data_out),
-
-      // MMIO access
-      .mmio_access(mmio_access),
-      .mmio_addr(mmio_addr),
-      .mmio_write(mmio_write),
-      .mmio_data_in(mmio_data_in),
-      .mmio_data_out(mmio_data_out),
+      // MMIO
+      .o_mmio_addr(mmio_addr),
+      // Reading
+      .i_mmio_data(mmio_data_in),
+      .i_mmio_rd_valid(mmio_rd_valid),
+      .o_mmio_rd_ready(mmio_rd_ready),
+      // Writing
+      .o_mmio_data(mmio_data_out),
+      .o_mmio_wr_valid(mmio_wr_valid),
+      .i_mmio_wr_ready(mmio_wr_ready),
 
       // Control signals
       .invalid_addr(o_invalid_addr)
      );
-
-	  uartwriter uartwriter
-		(
-		 .clk(i_clk),
-		 .rst(i_rst),
-
-		 .rx(rx),
-		 .tx(tx),
-
-		 .fifo_empty(fifo_empty),
-		 .fifo_data(fifo_data_out),
-		 .fifo_read_en(fifo_read_enabled),
-
-     .rx_read(uart_rx_read),
-     .rx_available(uart_rx_avail),
-     .rx_data(uart_rx_data)
-		);
 endmodule

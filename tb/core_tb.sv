@@ -6,15 +6,22 @@ module core_tb;
    reg                clk = 1'b0;
    reg                rst = 1'b0;
 
-   wire [31:0]        addr;
-   wire               wr;
-   wire [`DATA_WIDTH-1:0] data_out;
-   reg [`DATA_WIDTH-1:0]  data_in;
+   // Memory interface
+   wire [31:0]            addr;
+   // Writes
+   wire [`DATA_WIDTH-1:0] wr_data;
+   wire                   wr_valid;
+   reg                    wr_ready = 0;
+   // Reads
+   reg [`DATA_WIDTH-1:0]  rd_data = 0;
+   reg                    rd_valid = 0;
+   wire                   rd_ready;
 
-   localparam FETCH_STATE = 3'b000, EXECUTE_STATE = 3'b001;
+   localparam
+     FETCH_STATE = 3'b000,
+     EXEC_STATE = 3'b001;
+
    wire                   invalid_inst;
-
-   reg [31:0]             inst_buff;
 
    task next_cycle();
       @(posedge clk);
@@ -23,52 +30,35 @@ module core_tb;
 
    task FETCH(input [31:0] inst);
       `CHECK_EQUAL(core.state, FETCH_STATE);
-
       `CHECK_EQUAL(addr, core.pc);
-      next_cycle();
-
-      // 1st cycle of fetch
-      data_in = inst[31:24];
-      `CHECK_EQUAL(addr, core.pc+1);
+      `CHECK_EQUAL(rd_valid, 0);
+      `CHECK_EQUAL(rd_ready, 1);
       next_cycle();
       `CHECK_EQUAL(core.state, FETCH_STATE);
-      `CHECK_EQUAL(core.inst[31:24], inst[31:24])
 
-      // 2nd cycle of fetch
-      data_in = inst[23:16];
-      `CHECK_EQUAL(addr, core.pc+2);
+      rd_valid = 1;
+      rd_data  = inst;
+      `CHECK_EQUAL(rd_ready, 1);
+      #1;
+      `CHECK_EQUAL(core.fetch_finished, 1);
       next_cycle();
-      `CHECK_EQUAL(core.state, FETCH_STATE);
-      `CHECK_EQUAL(core.inst[23:16], inst[23:16]);
-
-      // 3rd cycle of fetch
-      data_in = inst[15:8];
-      `CHECK_EQUAL(addr, core.pc+3);
-      next_cycle();
-      `CHECK_EQUAL(core.state, FETCH_STATE);
-      `CHECK_EQUAL(core.inst[15:8], inst[15:8]);
-
-      // 4 bytes(full instruction) fetched
-      data_in = inst[7:0];
-      `CHECK_EQUAL(addr, core.pc+4);
-      next_cycle();
-      `CHECK_EQUAL(core.state, EXECUTE_STATE);
-      `CHECK_EQUAL(core.inst[7:0], inst[7:0]);
+      rd_valid = 0;
+      `CHECK_EQUAL(core.fetch_finished, 0);
       `CHECK_EQUAL(core.inst, inst);
+      `CHECK_EQUAL(core.state, EXEC_STATE);
    endtask
 
    `TEST_SUITE begin
       `TEST_SUITE_SETUP begin
-         rst <= 1;
+         rst = 1;
          next_cycle();
-         rst <= 0;
+         rst = 0;
+         #1;
          `CHECK_EQUAL(core.state, FETCH_STATE);
          `CHECK_EQUAL(addr, 0);
-         `CHECK_EQUAL(wr, 0);
-         `CHECK_EQUAL(data_out, 0);
-         `CHECK_EQUAL(core.pc, 0);
       end
       `TEST_CASE("SH") begin
+         // vunit: .core
          // It tests multi-cycle instruction behavior.
          FETCH(LUI(5, 20'hAABBC));
          `CHECK_EQUAL(core.execute.X[5], 0);
@@ -80,23 +70,38 @@ module core_tb;
 
          FETCH(S(`STORE, `SH, 0, 'h7BC, 5));
          #1;
-         `CHECK_EQUAL(wr, 1);
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_ready, 0);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(data_out, 'hC0);
-         `CHECK_EQUAL(core.state, EXECUTE_STATE);
+         `CHECK_EQUAL(wr_data, 'h0000C000);
+         `CHECK_EQUAL(core.state, EXEC_STATE);
+         `CHECK_EQUAL(core.exec_finished, 0);
+         `CHECK_EQUAL(core.execute.mem_transfer_done, 0);
          next_cycle();
 
-         `CHECK_EQUAL(wr, 1);
-         `CHECK_EQUAL(addr, 'h7BD);
-         `CHECK_EQUAL(data_out, 'h00);
-         `CHECK_EQUAL(core.state, EXECUTE_STATE);
-         next_cycle();
+         // Still in EXEC, cuz wr_ready==0
+         `CHECK_EQUAL(core.state, EXEC_STATE);
+         `CHECK_EQUAL(core.exec_finished, 0);
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_ready, 0);
 
-         `CHECK_EQUAL(wr, 0);
+         next_cycle();
+         // Still in EXEC, cuz wr_ready==0
+         `CHECK_EQUAL(core.state, EXEC_STATE);
+         `CHECK_EQUAL(core.exec_finished, 0);
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_ready, 0);
+
+         wr_ready = 1;
+         #1;
+         `CHECK_EQUAL(core.exec_finished, 1);
+
+         next_cycle();
          `CHECK_EQUAL(core.state, FETCH_STATE);
          `CHECK_EQUAL(core.pc, 8);
       end
       `TEST_CASE("JUMPING INSTRUCTIONS") begin
+         // vunit: .core
          // x1 = 11
          FETCH(IMM_OP(1, 0, "+", 11));
          `CHECK_EQUAL(core.execute.X[1], 0);
@@ -134,61 +139,6 @@ module core_tb;
          `CHECK_EQUAL(core.execute.X[8], 'h100A + 4);
          `CHECK_EQUAL(core.pc, 0);
       end
-      `TEST_CASE("ADDI") begin
-         inst_buff = IMM_OP(1, 1, "+", 21);
-
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 0);
-         next_cycle();
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 1);
-
-         // 1st cycle of fetch
-         data_in = inst_buff[31:24];
-         next_cycle();
-         `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 2);
-         `CHECK_EQUAL(core.inst, inst_buff & 32'hFF000000)
-
-         // 2nd cycle of fetch
-         data_in = inst_buff[23:16];
-         next_cycle();
-         `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 3);
-         `CHECK_EQUAL(core.inst, inst_buff & 32'hFFFF0000);
-
-         // 3rd cycle of fetch
-         data_in = inst_buff[15:8];
-         next_cycle();
-         `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 4);
-         `CHECK_EQUAL(core.inst, inst_buff & 32'hFFFFFF00);
-
-         // 4 bytes(full instruction) fetched
-         data_in = inst_buff[7:0];
-         next_cycle();
-         `CHECK_EQUAL(core.state, EXECUTE_STATE);
-         `CHECK_EQUAL(core.pc, 0);
-         `CHECK_EQUAL(addr, 0);
-         `CHECK_EQUAL(core.inst, inst_buff);
-
-         // Execute
-         `CHECK_EQUAL(core.execute.X[1], 0);
-         `CHECK_EQUAL(core.execute.w_I, 21);
-         `CHECK_EQUAL(core.execute.w_rs1, 1);
-         `CHECK_EQUAL(core.execute.w_rd, 1);
-         `CHECK_EQUAL(core.execute.X[core.execute.w_rs1] + core.execute.w_I, 21);
-         next_cycle();
-
-         `CHECK_EQUAL(invalid_inst, 0);
-         `CHECK_EQUAL(core.inst, inst_buff);
-         `CHECK_EQUAL(core.state, FETCH_STATE);
-         `CHECK_EQUAL(core.pc, 4);
-         `CHECK_EQUAL(core.execute.X[1], 21);
-      end
    end;
    `WATCHDOG(10ms);
 
@@ -202,12 +152,17 @@ module core_tb;
 	    .i_clk(clk),
 	    .i_rst(rst),
 
-      .o_mem_addr(addr),
-      .o_mem_data(data_out),
-      .i_mem_data(data_in),
-      .o_mem_write(wr),
+      // Memory interface
+      .o_addr(addr),
+      // Writes
+      .o_data(wr_data),
+      .o_wr_valid(wr_valid),
+      .i_wr_ready(wr_ready),
+      // Reads
+      .i_data(rd_data),
+      .i_rd_valid(rd_valid),
+      .o_rd_ready(rd_ready),
 
-      .o_invalid_inst(invalid_inst),
-      .o_pc()
+      .o_invalid_inst(invalid_inst)
      );
 endmodule

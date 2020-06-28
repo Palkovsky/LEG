@@ -10,106 +10,156 @@ module bram #(
   input                       i_write,
   output reg [DATA_WIDTH-1:0] o_data
 );
-	localparam RAM_SIZE=1<<ADDR_WIDTH;
+	 localparam
+     RAM_SIZE=1<<ADDR_WIDTH;
 
    reg [DATA_WIDTH-1:0]       mem[0:RAM_SIZE-1];
 
 	initial begin
-     // TODO: Macro for BRAM initialization
-		 for (int i=0; i<RAM_SIZE; i++) begin
-			  mem[i] = 0;
-		 end
      /*
-      * ADDI x14, x0, -1
-      * ADDI x15, x0, 256
-      * LB x1, 0(x15)
-      * LB x2, 1(x15)
-      * LB x3, 2(x15)
-      * LB x4, 3(x15)
-      * ADDI x6, x0, 5
+      * # This program tests BRAM and MMIO transfers
+      * 0: ADDI x14, x0, -1   # 0xFFFFFFFF - UART TX MMIO
+      # Set x1=0x11223344
+      * 1: LUI x1, 0x49505
+      * 2: ADDI x1, x1, 0x152
+      * # Store x1 under 0x00000100
+      * 3: SW x1, 0x100(x0)
+      * # Wait for TX FIFO to have enough space(4 bytes)
+      * 4: ADDI x6, x0, 5
       * wait_free_buff:
-      * LB x5, 0(x14)
-      * BLTU x5, x6, wait_free_buff
-      * SB x1, 0(x14)
-      * SB x2, 0(x14)
-      * SB x3, 0(x14)
-      * SB x4, 0(x14)
-      * JAL x0, wait_free_buff
-     { mem[0], mem[1], mem[2], mem[3] }     = 32'hfff00713;
-		 { mem[4], mem[5], mem[6], mem[7] }     = 32'h10000793;
-     { mem[8], mem[9], mem[10], mem[11] }   = 32'h00078083;
-     { mem[12], mem[13], mem[14], mem[15] } = 32'h00178103;
-     { mem[16], mem[17], mem[18], mem[19] } = 32'h00278183;
-     { mem[20], mem[21], mem[22], mem[23] } = 32'h00378203;
-     { mem[24], mem[25], mem[26], mem[27] } = 32'h00500313;
-     { mem[28], mem[29], mem[30], mem[31] } = 32'h00070283;
-     { mem[32], mem[33], mem[34], mem[35] } = 32'hfe62eee3;
-     { mem[36], mem[37], mem[38], mem[39] } = 32'h00170023;
-     { mem[40], mem[41], mem[42], mem[43] } = 32'h00270023;
-     { mem[44], mem[45], mem[46], mem[47] } = 32'h00370023;
-     { mem[48], mem[49], mem[50], mem[51] } = 32'h00470023;
-     { mem[52], mem[53], mem[54], mem[55] } = 32'hfe9ff06f;
-     // Data to send
-     { mem[256], mem[257], mem[258], mem[259] } = 32'h41424344;
+      * 5: LB x5, 0(x14)
+      * 6: BLTU x5, x6, wait_free_buff
+      * # Load word from 0x00000100
+      * 7: LW x2, 0x100(x0)
+      * # Write 1st byte to UART
+      * 8: SB x2, 0(x14)
+      * 9: SRAI x2, x2, 8
+      * # Write 2nd byte to UART
+      * A: SB x2, 0(x14)
+      * B: SRAI x2, x2, 8
+      * # Write 3rd byte to UART
+      * C: SB x2, 0(x14)
+      * D: SRAI x2, x2, 8
+      * # Write 4th byte to UART
+      * E: SB x2, 0(x14)
+      * F: JAL x0, wait_free_buff
+     mem[00] = 32'hfff00713;
+		 mem[01] = 32'h495050b7;
+     mem[02] = 32'h15208093;
+     mem[03] = 32'h10102023;
+     mem[04] = 32'h00500313;
+     mem[05] = 32'h00070283;
+     mem[06] = 32'hfe62eee3;
+     mem[07] = 32'h10002103;
+     mem[08] = 32'h00270023;
+     mem[09] = 32'h40815113;
+     mem[10] = 32'h00270023;
+     mem[11] = 32'h40815113;
+     mem[12] = 32'h00270023;
+     mem[13] = 32'h40815113;
+     mem[14] = 32'h00270023;
+     mem[15] = 32'hfd9ff06f;
+     // Data
+     mem[64] = 32'h41424344;
       */
 
-     /*
-      * ADDI x15, x0, -3 # 0xFFFFFFFD
-      * ADDI x14, x0, -2 # 0xFFFFFFFE
-      * ADDI x13, x0, -1 # 0xFFFFFFFF
-      * poll:
-      * LB x2, 0(x15)
-      * BEQ x2, x0, poll
-      * LB x3, 0(x14)
-      * SB x3, 0(x13)
-      * SB x0, 0(x13)
-      * JAL x0, poll
+	  /*
+     * # Echo with I/O wait.
+     * 0: ADDI x14, x0, -2 # 0xFFFFFFFE
+     * 1: ADDI x13, x0, -1 # 0xFFFFFFFF
+     * echo:
+     * # Read byte from RX
+     * 2: LB x3, 0(x14) # This hangs, when there's no data.
+     * # Write to TX FIFO
+     * 3: SB x3, 0(x13) # This would hang if the FIFO was full.
+     * 4: JAL x0, echo
+	   mem[00] = 32'hffe00713;
+	   mem[01] = 32'hfff00693;
+     mem[02] = 32'h00070183;
+     mem[03] = 32'h00368023;
+     mem[04] = 32'hff9ff06f;
+	   */
 
-     { mem[0], mem[1], mem[2], mem[3] }     = 32'hffd00793;
-	  { mem[4], mem[5], mem[6], mem[7] }     = 32'hffe00713;
-     { mem[8], mem[9], mem[10], mem[11] }   = 32'hfff00693;
-     { mem[12], mem[13], mem[14], mem[15] } = 32'h00078103;
-     { mem[16], mem[17], mem[18], mem[19] } = 32'hfe010ee3;
-     { mem[20], mem[21], mem[22], mem[23] } = 32'h00070183;
-     { mem[24], mem[25], mem[26], mem[27] } = 32'h00368023;
-     { mem[28], mem[29], mem[30], mem[31] } = 32'h00068023;
-     { mem[32], mem[33], mem[34], mem[35] } = 32'hfedff06f;
-	        */
-			  
-		/*
-		ADDI x15, x0, -3 # 0xFFFFFFFD
-		ADDI x14, x0, -2 # 0xFFFFFFFE
-		ADDI x13, x0, -1 # 0xFFFFFFFF
-		ADDI x12, x0, 2
-		poll1:
-		LB x2, 0(x15)
-		BEQ x2, x0, poll1
-		LB x3, 0(x14)
-		poll2:
-		LB x2, 0(x13)
-		BLTU x2, x12, poll2
-		SB x3, 0(x13)
-		SB x0, 0(x13)
-		JAL x0, poll1
-		*/
-     { mem[0], mem[1], mem[2], mem[3] }     = 32'hffd00793;
-	  { mem[4], mem[5], mem[6], mem[7] }     = 32'hffe00713;
-     { mem[8], mem[9], mem[10], mem[11] }   = 32'hfff00693;
-     { mem[12], mem[13], mem[14], mem[15] } = 32'h00200613;
-     { mem[16], mem[17], mem[18], mem[19] } = 32'h00078103;
-     { mem[20], mem[21], mem[22], mem[23] } = 32'hfe010ee3;
-     { mem[24], mem[25], mem[26], mem[27] } = 32'h00070183;
-     { mem[28], mem[29], mem[30], mem[31] } = 32'h00068103;
-     { mem[32], mem[33], mem[34], mem[35] } = 32'hfec16ee3;
-     { mem[36], mem[37], mem[38], mem[39] } = 32'h00368023;
-     { mem[40], mem[41], mem[42], mem[43] } = 32'h00068023;
-     { mem[44], mem[45], mem[46], mem[47] } = 32'hfe5ff06f;
+     /*
+      * # Trying to overflow TX FIFO
+      * # SB instruction should hang when trying to write to full FIFO
+      * # therefore the overflow shouldn't happen.
+	   * 0: ADDI x15, x0, -1
+		* start:
+		* 1: LUI x1, 0x31323
+		* 2: ADDI x1, x1, 0x334
+	   * send:
+		* 3: SB x1, 0(x15)
+		* 4: SRAI x1, x1, 8
+		* 5: BEQ x1, x0, start
+		* 6: JAL x0, send
+      */
+     mem[00] = 32'hfff00793;
+	  mem[01] = 32'h313230b7;
+     mem[02] = 32'h33408093;
+     mem[03] = 32'h00178023;
+     mem[04] = 32'h4080d093;
+     mem[05] = 32'hfe0088e3;
+	  mem[06] = 32'hff5ff06f;
 	end
 
 	 always @(posedge i_clk) begin
+      o_data <= mem[i_addr];
       if (i_write)
         mem[i_addr] <= i_data;
-      else
-        o_data <= mem[i_addr];
 	 end
+endmodule
+
+// Wrapper for bram with support of ready/valid protocol.
+module bram_rv #(
+ DATA_WIDTH,
+ ADDR_WIDTH
+)(
+	input                       i_clk,
+  input                       i_rst,
+  input [ADDR_WIDTH-1:0]      i_addr,
+
+  input [DATA_WIDTH-1:0]      i_data,
+  input                       i_wr_valid,
+  output reg                  o_wr_ready,
+
+  output reg [DATA_WIDTH-1:0] o_data,
+  output reg                  o_rd_valid,
+  input                       i_rd_ready
+);
+
+   reg [DATA_WIDTH-1:0]  bram_data_in;
+   reg                   bram_write;
+   wire [DATA_WIDTH-1:0] bram_data_out;
+
+   reg                   reading = 0;
+
+   always_comb begin
+      { bram_write, o_wr_ready, bram_data_in, o_rd_valid, o_data } <= 0;
+
+      if (i_wr_valid)
+         { bram_write, o_wr_ready, bram_data_in } <= { 1'b1, 1'b1, i_data };
+      else if (reading)
+        { o_rd_valid, o_data } <= { 1'b1, bram_data_out };
+   end
+
+   always @(posedge i_clk) begin
+      if (i_rst)
+         reading <= 0;
+      else
+         reading <= (i_rd_ready && !reading);
+   end
+
+   bram
+     #(
+       .DATA_WIDTH(DATA_WIDTH),
+       .ADDR_WIDTH(ADDR_WIDTH)
+      ) bram
+      (
+       .i_clk(i_clk),
+       .i_data(bram_data_in),
+       .i_addr(i_addr),
+       .i_write(bram_write),
+       .o_data(bram_data_out)
+      );
 endmodule

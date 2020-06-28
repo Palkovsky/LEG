@@ -8,23 +8,28 @@ module execute (
   input [31:0]                 i_inst,
 
   // Memory interface
-  input [`DATA_WIDTH-1:0]      i_mem_data,
-  output reg [31:0]            o_mem_addr = 0,
-  output reg                   o_mem_write = 0,
-  output reg [`DATA_WIDTH-1:0] o_mem_data = 0,
+  output reg [31:0]            o_addr = 0,
+  // Writes
+  output reg [`DATA_WIDTH-1:0] o_data = 0,
+  output reg                   o_wr_valid = 0,
+  input                        i_wr_ready,
+  // Reads
+  input [`DATA_WIDTH-1:0]      i_data,
+  input                        i_rd_valid,
+  output reg                   o_rd_ready = 0,
 
   // Control unit interface
   input [31:0]                 i_pc,
   output reg                   o_pc_change = 0,
   output reg [31:0]            o_new_pc = 0,
-  output reg                   o_ready,
+  output reg                   o_finished,
   output reg                   o_invalid_inst
 );
    // Control signals
    reg [3:0]                   r_cycle = 0;
-   reg                         r_last_cycle = 1;
    wire [3:0]                  w_next_cycle = r_cycle+1;
-   assign o_ready = r_last_cycle;
+   reg                         r_last_cycle;
+   assign o_finished = r_last_cycle;
 
    // RISC-V instruction decoder
    wire [6:0]                 w_opcode = i_inst[6:0];   // R/I/S/U
@@ -58,83 +63,53 @@ module execute (
    /*
     * ========= MEMORY ACCESS INSTRUCTIONS
     */
-   // Memory-related signals
-   reg [2:0]                  bytes_to_transfer;
-   reg                        ld_unsiged;
-   reg                        ld_started;
-   reg [3:0]                  bytes_counter = 0;
-   reg [3:0]                  chunk_counter = 0;
-
-   wire [2:0]                 bytes_counter_next;
-   wire [2:0]                 chunk_counter_next;
-   wire [4:0]                 transfer_chunk_index;
-
-   assign bytes_counter_next = bytes_counter+1;
-   assign chunk_counter_next = chunk_counter+1;
-   assign transfer_chunk_index  = (bytes_to_transfer-chunk_counter)*8-1;
+   reg                       mem_transfer_done;
 
    task LOAD_SEQ();
-      ld_started <= 1;
-      bytes_counter <= bytes_counter_next;
-      if (ld_started) begin
-         chunk_counter <= chunk_counter_next;
-         // If all transfered
-         if(chunk_counter_next == bytes_to_transfer) begin
-            ld_started <= 0;
-            chunk_counter <= 0;
-            bytes_counter <= 0;
-            // Do either zero-extension or sign-extension
-            case (bytes_to_transfer)
-              1: X[w_rd][31:8]  <= (ld_unsiged) ? 24'b0 : { {24{i_mem_data[7]}} };
-              2: X[w_rd][31:16] <= (ld_unsiged) ? 16'b0 : { {16{i_mem_data[7]}} };
-            endcase
-         end
-         // Copy to register
-         X[w_rd][transfer_chunk_index -: 8] <= i_mem_data;
+      if (o_rd_ready && i_rd_valid) begin
+         case (w_funct3)
+           `LBU:
+             X[w_rd] <= { 24'b0, i_data[7:0] };
+           `LB:
+             X[w_rd] <= { {24{i_data[7]}}, i_data[7:0] };
+           `LHU:
+             X[w_rd] <= { 16'b0, i_data[15:0] };
+           `LH:
+             X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
+           `LW:
+             X[w_rd] <= i_data[31:0];
+         endcase
       end
    endtask
 
    task STORE_SEQ();
-      bytes_counter <= bytes_counter_next;
-      chunk_counter <= chunk_counter_next;
-      if(chunk_counter == bytes_to_transfer-1) begin
-         bytes_counter <= 0;
-         chunk_counter <= 0;
-      end
    endtask
 
    // Drive memory interface for STORE and LOAD.
    always_comb begin
+      o_wr_valid <= 0;
+      o_rd_ready <= 0;
+      o_data <= 0;
+      o_addr <= 0;
+      mem_transfer_done <= 0;
+
       if (w_opcode == `STORE) begin
-         o_mem_write <= 1;
-         o_mem_addr <= r_alu_result;
-         o_mem_data <= X[w_rs2][transfer_chunk_index -: 8];
-         ld_unsiged <= 0;
+         mem_transfer_done <= (o_wr_valid && i_wr_ready);
+         o_wr_valid <= 1;
+         o_addr <= r_alu_result;
          case (w_funct3)
-           `SB: bytes_to_transfer <= 1;
-           `SH: bytes_to_transfer <= 2;
-           `SW: bytes_to_transfer <= 4;
-           default: bytes_to_transfer <= 0;
+           `SB:
+             o_data <= { 24'h0, X[w_rs2][7:0]  };
+           `SH:
+             o_data <= { 16'h0, X[w_rs2][15:0] };
+           `SW:
+             o_data <= X[w_rs2][31:0];
          endcase
       end
       else if (w_opcode == `LOAD) begin
-         o_mem_write <= 0;
-         o_mem_addr <= r_alu_result;
-         o_mem_data <= 0;
-         ld_unsiged <= (w_funct3 == `LBU || w_funct3 == `LHU);
-         case (w_funct3)
-           `LB, `LBU: bytes_to_transfer <= 1;
-           `LH, `LHU: bytes_to_transfer <= 2;
-           `LW:       bytes_to_transfer <= 4;
-           default:   bytes_to_transfer <= 0;
-         endcase
-      end
-      else begin
-         o_mem_write <= 0;
-         o_mem_data <= 0;
-         o_mem_addr <= 0;
-         ld_unsiged <= 0;
-         bytes_to_transfer <= 0;
+         mem_transfer_done <= (i_rd_valid && o_rd_ready);
+         o_rd_ready <= 1;
+         o_addr <= r_alu_result;
       end
    end
 
@@ -143,11 +118,10 @@ module execute (
     * This signal tells user to latch new instruction.
     */
    always_comb begin
-      r_last_cycle <= (w_next_cycle >= 1);
-      if (w_opcode == `LOAD)
-         r_last_cycle <= (w_next_cycle >= bytes_to_transfer+1);
-      else if (w_opcode == `STORE)
-         r_last_cycle <= (w_next_cycle >= bytes_to_transfer);
+      if (w_opcode == `LOAD || w_opcode == `STORE)
+        r_last_cycle <= mem_transfer_done;
+      else
+        r_last_cycle <= (w_next_cycle >= 1);
    end
 
    /*
@@ -173,13 +147,11 @@ module execute (
            r_alu_operation <= `ALU_ADD;
            r_alu_op1 <= X[w_rs1];
            r_alu_op2 <= w_I;
-           r_alu_op3 <= bytes_counter;
         end
         `STORE: begin
            r_alu_operation <= `ALU_ADD;
            r_alu_op1 <= X[w_rs1];
            r_alu_op2 <= w_S;
-           r_alu_op3 <= bytes_counter;
         end
         `BRANCH: begin
            r_alu_operation <= `ALU_ADD;
@@ -342,7 +314,6 @@ module execute (
    endtask
 
    task BRANCH_SEQ();
-      // No sequential logic for branch.
    endtask
 
    always @(posedge i_clk) begin
