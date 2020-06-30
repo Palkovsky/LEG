@@ -27,7 +27,7 @@ module memmap
    input                        i_mmio_wr_ready,
 
    // Control signals
-   output reg                   invalid_addr
+   output reg                   o_invalid_addr
  );
    localparam
      BRAM_SIZE = 1<<`BRAM_WIDTH,
@@ -45,7 +45,7 @@ module memmap
 
    always_comb begin
       {
-       invalid_addr,
+       o_invalid_addr,
        bram_addr,
        bram_data_in,
        bram_wr_valid,
@@ -67,18 +67,15 @@ module memmap
          // Writing
          { o_mmio_data, o_mmio_wr_valid, o_wr_ready } <= { i_cpu_data, i_wr_valid, i_mmio_wr_ready };
       end
-      else if (i_cpu_addr < BRAM_SIZE) begin
+      else if (i_cpu_addr >= 0 && i_cpu_addr < BRAM_SIZE) begin
          // BRAM access
          bram_addr <= (i_cpu_addr >> 2);
          { o_cpu_data, o_rd_valid, bram_rd_ready } <= { bram_data_out, bram_rd_valid, i_rd_ready };
          { bram_data_in, bram_wr_valid, o_wr_ready } <= { i_cpu_data, i_wr_valid, bram_wr_ready };
       end
       else begin
-         invalid_addr <= 1;
+         o_invalid_addr <= 1;
       end
-   end
-
-   always @(posedge i_clk) begin
    end
 
    bram_rv

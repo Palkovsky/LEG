@@ -2,8 +2,8 @@
 `include "funcs.svh"
 
 module bramrv_tb;
-   localparam integer clk_period = 10; // ns
    localparam
+     clk_period = 10,
      ADDR_WIDTH = 10,
      DATA_WIDTH = 32;
 
@@ -13,11 +13,11 @@ module bramrv_tb;
 
    reg [DATA_WIDTH-1:0] data_in = 0;
    reg                  wr_valid = 0;
-   reg                  wr_ready;
+   wire                 wr_ready;
 
 
-   reg [DATA_WIDTH-1:0] data_out;
-   reg                  rd_valid;
+   wire [DATA_WIDTH-1:0] data_out;
+   wire                  rd_valid;
    reg                  rd_ready = 0;
 
    task next_cycle();
@@ -30,15 +30,14 @@ module bramrv_tb;
       input [ADDR_WIDTH-1:0] arg_addr,
       input [DATA_WIDTH-1:0] arg_data
      );
-      wr_valid = 1;
-      addr = arg_addr;
-      data_in = arg_data;
+      { wr_valid, addr, data_in } = { 1'b1, arg_addr, arg_data };
       #1;
       `CHECK_EQUAL(wr_ready, 1);
       next_cycle();
       wr_valid = 0;
       #1;
       `CHECK_EQUAL(wr_ready, 0);
+      `CHECK_EQUAL(bram.bram.mem[arg_addr], arg_data);
    endtask
 
    task assert_read
@@ -48,23 +47,26 @@ module bramrv_tb;
      );
       addr = arg_addr;
       rd_ready = 1;
+      `CHECK_EQUAL(bram.reading, 0);
       next_cycle();
       `CHECK_EQUAL(bram.reading, 1);
-      rd_ready = 0;
-      #1;
       `CHECK_EQUAL(data_out, arg_expected);
+      rd_ready = 0;
+      next_cycle();
+      `CHECK_EQUAL(bram.reading, 0);
    endtask
 
    `TEST_SUITE begin
       `TEST_SUITE_SETUP begin
+         #1;
          `CHECK_EQUAL(bram.reading, 0);
       end
       `TEST_CASE("bramrv one write") begin
          // vunit: .bramrv
          write(21, 32'hAA);
          assert_read(21, 32'hAA);
-         assert_read(22, 32'h00);
-         assert_read(21, 32'hAA);
+         write(21, 32'hAB);
+         assert_read(21, 32'hAB);
       end
       `TEST_CASE("bramrv multiple writes") begin
          // vunit: .bramrv
@@ -95,7 +97,7 @@ module bramrv_tb;
    ) bram
    (
 	  .i_clk(clk),
-    .i_rst(0),
+    .i_rst(1'b0),
     .i_addr(addr),
 
     .i_data(data_in),

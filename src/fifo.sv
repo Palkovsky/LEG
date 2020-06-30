@@ -5,23 +5,23 @@ module fifo #(FIFO_WIDTH, FIFO_DEPTH, FIFO_SIZE=1<<FIFO_DEPTH)
 	input logic reset,
 	input logic clk,
 	input logic write,
-	input logic read,   
-	input logic [FIFO_WIDTH-1:0] data_in,                  
-	output logic [FIFO_WIDTH-1:0] data_out,                  
+	input logic read,
+	input logic [FIFO_WIDTH-1:0] data_in,
+	output logic [FIFO_WIDTH-1:0] data_out,
 	output logic fifo_empty = 1,
-	output logic fifo_full = 0,      
+	output logic fifo_full = 0,
 	output logic [FIFO_DEPTH:0] fifo_counter = 0,
 	output logic [FIFO_DEPTH:0] fifo_free = FIFO_SIZE
-	);             
+	);
 
   //rd and wr pointer for internally writing/read from memory
   logic[FIFO_DEPTH-1:0] wr_ptr;
   logic[FIFO_DEPTH-1:0] rd_ptr;
-  
+
   //fifo array
   logic [FIFO_WIDTH-1:0] fifo_mem [FIFO_SIZE-1:0];
-  
-  
+
+
 always @(fifo_counter)
 begin
   fifo_empty = (fifo_counter==0);
@@ -76,7 +76,7 @@ begin
    end
    else
    begin
-     if( !fifo_full && write )    
+     if( !fifo_full && write )
        wr_ptr <= wr_ptr + 1;
      else  wr_ptr <= wr_ptr;
 
@@ -86,5 +86,5 @@ begin
        rd_ptr <= rd_ptr;
    end
 end
-  
+
 endmodule

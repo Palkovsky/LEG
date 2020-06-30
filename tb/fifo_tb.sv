@@ -1,8 +1,11 @@
 `include "vunit_defines.svh"
 
 module fifo_tb;
-   localparam DATA_WIDTH = 8, ADDR_WIDTH = 4, FIFO_SIZE = (1<<ADDR_WIDTH);
-   localparam integer clk_period = 15;
+   localparam
+     clk_period = 10,
+     DATA_WIDTH = 8,
+     ADDR_WIDTH = 4,
+     FIFO_SIZE = (1<<ADDR_WIDTH);
 
    reg                clk = 0;
    reg                rst = 0;
@@ -47,12 +50,14 @@ module fifo_tb;
          `CHECK_EQUAL(is_full, 0);
       end
       `TEST_CASE("simple write read") begin
+         // vunit: .fifo
          PUSH('hAA);
          `CHECK_EQUAL(is_empty, 0);
          ASSERT_POP('hAA);
          `CHECK_EQUAL(is_empty, 1);
       end
       `TEST_CASE("full fifo") begin
+         // vunit: .fifo
          for (int i=0; i<FIFO_SIZE; i=i+1) begin
             PUSH(i);
             `CHECK_EQUAL(is_empty, 0);
@@ -75,22 +80,22 @@ module fifo_tb;
    // Init module
    fifo
      #(
-       .DATA_WIDTH(DATA_WIDTH),
-       .ADDR_WIDTH(ADDR_WIDTH)
+       .FIFO_WIDTH(DATA_WIDTH),
+       .FIFO_DEPTH(ADDR_WIDTH)
      ) fifo (
       .clk(clk),
-      .rst(rst),
+      .reset(rst),
 
        // Read port
        .data_out(data_out),
-       .empty_out(is_empty),
-       .read_en_in(read_en),
+       .fifo_empty(is_empty),
+       .read(read_en),
 
       // Write port
       .data_in(data_in),
-      .full_out(is_full),
-      .write_en_in(write_en),
+      .fifo_full(is_full),
+      .write(write_en),
 
-      .free()
+      .fifo_free()
     );
 endmodule

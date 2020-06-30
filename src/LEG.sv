@@ -90,9 +90,9 @@ module LEG(
        uart_rd_ready
        } <= 0;
 
-      case (mmio_addr[7:0])
+      case (mmio_addr[15:0])
         // UART TX
-        'hFF: begin
+        'hFFFF: begin
            // On write, pass signals to uart TX.
            if (mmio_wr_valid)
              { uart_in, uart_wr_valid, mmio_wr_ready } <= { mmio_data_out[7:0], 1'b1, uart_wr_ready };
@@ -104,21 +104,17 @@ module LEG(
            end
         end
         // UART RX -> Read byte
-        'hFE: begin
+        'hFFFE: begin
            if (mmio_rd_ready) begin
               mmio_data_in <= uart_out;
               { mmio_rd_valid, uart_rd_ready } <= { uart_rd_valid, 1'b1 };
-				  //mmio_data_in <= 'h41;
-				  //mmio_rd_valid <= 1;
-
            end
         end
         // UART RX -> Check if byte present
-        'hFD: begin
+        'hFFFD: begin
            if (mmio_rd_ready) begin
               mmio_rd_valid <= 1;
               mmio_data_in <= uart_rx_present;
-				  //mmio_data_in <= 1;
            end
         end
       endcase
@@ -139,16 +135,14 @@ module LEG(
 
       // MMIO
       .o_mmio_addr(mmio_addr),
-      // Reading
       .i_mmio_data(mmio_data_in),
       .i_mmio_rd_valid(mmio_rd_valid),
       .o_mmio_rd_ready(mmio_rd_ready),
-      // Writing
       .o_mmio_data(mmio_data_out),
       .o_mmio_wr_valid(mmio_wr_valid),
       .i_mmio_wr_ready(mmio_wr_ready),
 
-      // Control signals
-      .invalid_addr(o_invalid_addr)
+      // Control
+      .o_invalid_addr(o_invalid_addr)
      );
 endmodule

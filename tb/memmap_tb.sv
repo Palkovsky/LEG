@@ -8,122 +8,96 @@ module memmap_tb;
    reg                clk = 0;
    reg                rst = 0;
 
-   reg [31:0]         cpu_addr = 0;
+   // CPU bus
+   reg [31:0]        cpu_addr = 0;
+   // Writing
    reg [`DATA_WIDTH-1:0] cpu_data_out = 0;
-   reg [`DATA_WIDTH-1:0]  cpu_data_in;
-   reg                    cpu_write = 0;
+   reg                   cpu_wr_valid = 0;
+   wire                  cpu_wr_ready;
+   // Reading
+   wire [`DATA_WIDTH-1:0]  cpu_data_in;
+   wire                    cpu_rd_valid;
+   reg                     cpu_rd_ready = 0;
 
-   reg [`DATA_WIDTH-1:0]  bram_data_in;
-   reg                    bram_write;
-   reg [`DATA_WIDTH-1:0]  bram_data_out;
-   reg [31:0]             bram_addr;
-
-   reg                    mmio_access;
-   reg [31:0]             mmio_addr;
-   reg                    mmio_write;
+   // MMIO
+   wire [31:0]        mmio_addr;
+   // Writing
+   wire [`DATA_WIDTH-1:0] mmio_data_out;
+   wire                   mmio_wr_valid;
+   reg                    mmio_wr_ready = 0;
+   // Reading
    reg [`DATA_WIDTH-1:0]  mmio_data_in = 0;
-   reg [`DATA_WIDTH-1:0]  mmio_data_out;
+   reg                    mmio_rd_valid = 0;
+   wire                   mmio_rd_ready;
 
-   reg [`DATA_WIDTH-1:0]  fifo_data_out;
-   reg                    fifo_empty;
-   reg                    fifo_read_enabled;
-
-   reg [`DATA_WIDTH-1:0]  fifo_data_in;
-   reg                    fifo_full;
-   reg                    fifo_write_enabled;
-
-   reg [4:0]              fifo_free;
-
+   // Control
    wire                   invalid_addr;
-
-   wire [`BRAM_WIDTH-1:0] bram_addr_low = bram_addr[`BRAM_WIDTH-1:0];
 
    task next_cycle();
       @(posedge clk);
       #1;
-   endtask
+   endtask // next_cycle
 
    `TEST_SUITE begin
       `TEST_SUITE_SETUP begin
-         rst = 1;
-         next_cycle();
-         rst = 0;
+         #1;
       end
       `TEST_CASE("write and read BRAM") begin
-         cpu_addr = 'h100;
-         cpu_data_out = 44;
-         cpu_write = 1;
-
-         #1;
-         `CHECK_EQUAL(bram_addr, cpu_addr);
-         `CHECK_EQUAL(bram_write, cpu_write);
-         `CHECK_EQUAL(bram_data_in, cpu_data_out);
-         `CHECK_EQUAL(fifo_write_enabled, 0);
-         `CHECK_EQUAL(fifo_data_in, 0);
-         `CHECK_EQUAL(invalid_addr, 0);
-         `CHECK_EQUAL(cpu_data_in, 0);
+         // vunit: .memmap
+         { cpu_addr, cpu_data_out, cpu_wr_valid } = { 32'h500, 32'h21, 1'b1 };
+         wait (cpu_wr_ready);
          next_cycle();
-         `CHECK_EQUAL(cpu_data_in, 0);
-
-         // Read data
-         cpu_write = 0;
-
+         { cpu_wr_valid, cpu_rd_ready } = { 1'b0, 1'b1 };
+         wait (cpu_rd_valid);
          #1;
-         `CHECK_EQUAL(bram_addr, cpu_addr);
-         `CHECK_EQUAL(bram_write, cpu_write);
-         `CHECK_EQUAL(bram_data_in, cpu_data_out);
-         `CHECK_EQUAL(fifo_write_enabled, 0);
-         `CHECK_EQUAL(fifo_data_in, 0);
-         `CHECK_EQUAL(invalid_addr, 0);
-
-         next_cycle();
-         `CHECK_EQUAL(cpu_data_in, 44);
+         `CHECK_EQUAL(cpu_data_in, 32'h21);
       end
-      `TEST_CASE("write and read FIFO") begin
-         cpu_addr = 32'hFFFFFFFF;
-         cpu_data_out = 44;
-         cpu_write = 1;
-
-         #1
-         `CHECK_EQUAL(bram_addr, 0);
-         `CHECK_EQUAL(bram_write, 0);
-         `CHECK_EQUAL(bram_data_in, 0);
-         `CHECK_EQUAL(fifo_write_enabled, 1);
-         `CHECK_EQUAL(mmio_data_out, 44);
-         `CHECK_EQUAL(fifo_data_in, 44);
-         `CHECK_EQUAL(invalid_addr, 0);
-         `CHECK_EQUAL(fifo_empty, 1);
-         next_cycle();
-         `CHECK_EQUAL(fifo_full, 0);
-         cpu_write = 0;
-
-         #1
-         `CHECK_EQUAL(bram_addr, 0);
-         `CHECK_EQUAL(bram_write, 0);
-         `CHECK_EQUAL(bram_data_in, 0);
-         `CHECK_EQUAL(fifo_write_enabled, 0);
-         `CHECK_EQUAL(fifo_data_in, 0);
+      `TEST_CASE("write and read MMIO") begin
+         // vunit: .memmap
+         `CHECK_EQUAL(mmio_addr, 0);
+         `CHECK_EQUAL(mmio_data_out, 0);
+         `CHECK_EQUAL(mmio_wr_ready, 0);
+         `CHECK_EQUAL(cpu_wr_ready, 0);
          `CHECK_EQUAL(invalid_addr, 0);
 
-         `CHECK_EQUAL(mmio_data_in, 15);
-         `CHECK_EQUAL(cpu_data_in, 15);
+         { cpu_addr, cpu_data_out, cpu_wr_valid } = { 32'hFFFFFFFF, 32'h21, 1'b1 };
+         #1;
+         `CHECK_EQUAL(mmio_addr, cpu_addr);
+         `CHECK_EQUAL(mmio_data_out, cpu_data_out);
+         `CHECK_EQUAL(mmio_wr_valid, 1);
+         `CHECK_EQUAL(mmio_wr_ready, 1);
+         `CHECK_EQUAL(cpu_wr_ready, 1);
+         `CHECK_EQUAL(invalid_addr, 0);
 
-         // Try reading from FIFO
-         fifo_read_enabled = 1;
-         next_cycle();
-         `CHECK_EQUAL(fifo_data_out, 44);
-         `CHECK_EQUAL(fifo_empty, 1);
+         { cpu_addr, cpu_data_out, cpu_wr_valid } = 0;
+         #1;
+         `CHECK_EQUAL(mmio_addr, 0);
+         `CHECK_EQUAL(mmio_data_out, 0);
+         `CHECK_EQUAL(mmio_wr_ready, 0);
+         `CHECK_EQUAL(cpu_wr_ready, 0);
+         `CHECK_EQUAL(invalid_addr, 0);
 
-         `CHECK_EQUAL(mmio_data_in, 16);
-         `CHECK_EQUAL(cpu_data_in, 16);
+         { cpu_addr, cpu_rd_ready } <= { 32'hFFFFFFFF, 1'b1 };
+         #1;
+         `CHECK_EQUAL(mmio_addr, cpu_addr);
+         `CHECK_EQUAL(mmio_data_out, 0);
+         `CHECK_EQUAL(mmio_wr_valid, 0);
+         `CHECK_EQUAL(mmio_wr_ready, 0);
+         `CHECK_EQUAL(cpu_wr_ready, 0);
+         `CHECK_EQUAL(cpu_data_in, 32'h41);
+         `CHECK_EQUAL(cpu_rd_valid, 1);
+         `CHECK_EQUAL(invalid_addr, 0);
       end
       `TEST_CASE("write invalid addr") begin
-         cpu_addr = 32'h7FFFFFFF;
-         cpu_data_out = 68;
-         cpu_write = 1;
+         // vunit: .memmap
          `CHECK_EQUAL(invalid_addr, 0);
-         #1
+
+         { cpu_addr, cpu_data_out, cpu_wr_valid } = { 32'h88888888, 21, 1'b1 };
+         #1;
+
          `CHECK_EQUAL(invalid_addr, 1);
+         `CHECK_EQUAL(mmio_addr, 0);
+         `CHECK_EQUAL(mmio_data_out, 0);
       end
    end;
    `WATCHDOG(10ms);
@@ -133,87 +107,44 @@ module memmap_tb;
       clk = !clk;
    end
 
-   bram
-     #(
-       .DATA_WIDTH(`DATA_WIDTH),
-       .ADDR_WIDTH(`BRAM_WIDTH)
-     ) bram
-     (
-      .i_clk(clk),
-      .i_data(bram_data_in),
-      .i_addr(bram_addr_low),
-      .i_write(bram_write),
-      .o_data(bram_data_out)
-     );
-
-   fifo
-     #(
-       .DATA_WIDTH(`DATA_WIDTH),
-       .ADDR_WIDTH(4)
-       ) fifo
-       (
-        .clk(clk),
-        .rst(rst),
-
-        // Read port
-        .data_out(fifo_data_out),
-        .empty_out(fifo_empty),
-        .read_en_in(fifo_read_enabled),
-
-        // Write port
-        .data_in(fifo_data_in),
-        .full_out(fifo_full),
-        .write_en_in(fifo_write_enabled),
-
-        .free(fifo_free)
-       );
-
    memmap memmap
      (
-      .clk(),
+      .i_clk(clk),
+      .i_rst(rst),
 
-      // CPU interface
-      .cpu_addr(cpu_addr),
-      .cpu_write(cpu_write),
-      .cpu_data_in(cpu_data_in),
-      .cpu_data_out(cpu_data_out),
+      // CPU
+      .i_cpu_addr(cpu_addr),
+      .i_cpu_data(cpu_data_out),
+      .i_wr_valid(cpu_wr_valid),
+      .o_wr_ready(cpu_wr_ready),
+      .o_cpu_data(cpu_data_in),
+      .o_rd_valid(cpu_rd_valid),
+      .i_rd_ready(cpu_rd_ready),
 
-      // BRAM interface
-      .bram_addr(bram_addr),
-      .bram_write(bram_write),
-      .bram_data_in(bram_data_in),
-      .bram_data_out(bram_data_out),
+      // MMIO
+      .o_mmio_addr(mmio_addr),
+      .i_mmio_data(mmio_data_in),
+      .i_mmio_rd_valid(mmio_rd_valid),
+      .o_mmio_rd_ready(mmio_rd_ready),
+      .o_mmio_data(mmio_data_out),
+      .o_mmio_wr_valid(mmio_wr_valid),
+      .i_mmio_wr_ready(mmio_wr_ready),
 
-      // MMIO access
-      .mmio_access(mmio_access),
-      .mmio_addr(mmio_addr),
-      .mmio_write(mmio_write),
-      .mmio_data_in(mmio_data_in),
-      .mmio_data_out(mmio_data_out),
+      // Control
+      .o_invalid_addr(invalid_addr)
+      );
 
-      // Control signals
-      .invalid_addr(invalid_addr)
-     );
-
+   // Mock MMIO interface
    always_comb begin
-      // Defaults
-      fifo_write_enabled <= 0;
-      fifo_data_in <= 0;
-      mmio_data_in <= 0;
+      { mmio_data_in, mmio_rd_valid, mmio_wr_ready } <= 0;
 
-      if (mmio_access) begin
-         // UART FIFO
-         if (mmio_addr == 32'hFFFFFFFF) begin
-            if (mmio_write) begin
-               if (!fifo_full) begin
-                  fifo_write_enabled <= 1;
-                  fifo_data_in <= mmio_data_out;
-               end
-            end
-            else begin
-               mmio_data_in <= { 3'b0, fifo_free };
-            end
-         end
-      end
+      case (mmio_addr[15:0])
+        'hFFFF: begin
+           if (mmio_wr_valid)
+             mmio_wr_ready <= 1;
+           if (mmio_rd_ready)
+             { mmio_rd_valid, mmio_data_in } <= { 1'b1, 32'h41 };
+        end
+      endcase
    end
 endmodule

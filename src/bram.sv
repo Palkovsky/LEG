@@ -73,12 +73,12 @@ module bram #(
      * # Write to TX FIFO
      * 3: SB x3, 0(x13) # This would hang if the FIFO was full.
      * 4: JAL x0, echo
+	   */
 	   mem[00] = 32'hffe00713;
 	   mem[01] = 32'hfff00693;
      mem[02] = 32'h00070183;
      mem[03] = 32'h00368023;
      mem[04] = 32'hff9ff06f;
-	   */
 
      /*
       * # Trying to overflow TX FIFO
@@ -93,14 +93,14 @@ module bram #(
 		* 4: SRAI x1, x1, 8
 		* 5: BEQ x1, x0, start
 		* 6: JAL x0, send
-      */
      mem[00] = 32'hfff00793;
-	  mem[01] = 32'h313230b7;
+	   mem[01] = 32'h313230b7;
      mem[02] = 32'h33408093;
      mem[03] = 32'h00178023;
      mem[04] = 32'h4080d093;
      mem[05] = 32'hfe0088e3;
-	  mem[06] = 32'hff5ff06f;
+	   mem[06] = 32'hff5ff06f;
+      */
 	end
 
 	 always @(posedge i_clk) begin
@@ -145,9 +145,9 @@ module bram_rv #(
 
    always @(posedge i_clk) begin
       if (i_rst)
-         reading <= 0;
+        reading <= 0;
       else
-         reading <= (i_rd_ready && !reading);
+        reading <= (i_rd_ready && !reading);
    end
 
    bram
