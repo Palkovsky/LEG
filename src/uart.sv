@@ -1,3 +1,5 @@
+`include "common.svh"
+
 module uart(
     input clk,             // The master clock for this module
     input rst,             // Synchronous reset.
@@ -12,11 +14,8 @@ module uart(
     output recv_error       // Indicates error in receiving packet.
  );
 
-// clock rate (50Mhz) / (baud rate (9600) * 4)
-// 1302 for 9600
-// 217  for 57600
-// 109 for 115200
-parameter CLOCK_DIVIDE = 217;
+// clock rate (50Mhz) / (baud rate * 4)
+   parameter CLOCK_DIVIDE = 50000000/(`UART_BAUD_RATE * 4);
 
 // States for the receiving state machine.
 // These are just constants, not parameters to override.

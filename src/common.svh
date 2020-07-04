@@ -89,4 +89,7 @@
  `define ALU_SLL  4'h8
  `define ALU_SRL  4'h9
  `define ALU_SRA  4'hA
+
+// UART
+ `define UART_BAUD_RATE 115200
 `endif

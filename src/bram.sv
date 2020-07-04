@@ -73,12 +73,13 @@ module bram #(
      * # Write to TX FIFO
      * 3: SB x3, 0(x13) # This would hang if the FIFO was full.
      * 4: JAL x0, echo
-	   */
+	  */
 	   mem[00] = 32'hffe00713;
 	   mem[01] = 32'hfff00693;
      mem[02] = 32'h00070183;
      mem[03] = 32'h00368023;
      mem[04] = 32'hff9ff06f;
+
 
      /*
       * # Trying to overflow TX FIFO
