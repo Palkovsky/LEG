@@ -69,13 +69,41 @@ module execute (
       if (o_rd_ready && i_rd_valid) begin
          case (w_funct3)
            `LBU:
-             X[w_rd] <= { 24'b0, i_data[7:0] };
+             case (r_alu_result[1:0])
+               0:
+                 X[w_rd] <= { 24'b0, i_data[7:0] };
+               1:
+                 X[w_rd] <= { 24'b0, i_data[15:8] };
+               2:
+                 X[w_rd] <= { 24'b0, i_data[23:16] };
+               3:
+                 X[w_rd] <= { 24'b0, i_data[31:24] };
+             endcase
            `LB:
-             X[w_rd] <= { {24{i_data[7]}}, i_data[7:0] };
+             case (r_alu_result[1:0])
+               0:
+                 X[w_rd] = { {24{i_data[7]}}, i_data[7:0] };
+               1:
+                 X[w_rd] = { {24{i_data[15]}}, i_data[15:8] };
+               2:
+                 X[w_rd] = { {24{i_data[23]}}, i_data[23:16] };
+               3:
+                 X[w_rd] = { {24{i_data[31]}}, i_data[31:24] };
+             endcase
            `LHU:
-             X[w_rd] <= { 16'b0, i_data[15:0] };
+             case (r_alu_result[1:0])
+               0:
+                 X[w_rd] <= { 16'b0, i_data[15:0] };
+               2:
+                 X[w_rd] <= { 16'b0, i_data[31:16] };
+             endcase
            `LH:
-             X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
+             case (r_alu_result[1:0])
+               0:
+                 X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
+               2:
+                 X[w_rd] <= { {16{i_data[31]}}, i_data[31:16] };
+             endcase
            `LW:
              X[w_rd] <= i_data[31:0];
          endcase
