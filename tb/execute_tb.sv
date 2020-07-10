@@ -17,6 +17,7 @@ module execute_tb;
    wire [`DATA_WIDTH-1:0] wr_data;
    wire                   wr_valid;
    reg                    wr_ready;
+   wire [3:0]             byte_mask;
 
    reg [31:0]  inst;
 
@@ -457,14 +458,15 @@ module execute_tb;
       `TEST_CASE("SB") begin
          // vunit: .execute
          // vunit: .sb
-         // SB [x0+0xABC], x15
+         // SB [x0+0x7BC], x15
          SETREG(15, 'h11223344);
          inst <= S(`STORE, `SB, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr_valid, 0);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b0001);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 'h44);
+         `CHECK_EQUAL(wr_data, 'h44444444);
          `CHECK_EQUAL(finished, 1);
 
          // SB [x1+0x100], x14
@@ -473,26 +475,90 @@ module execute_tb;
          inst <= S(`STORE, `SB, 1, 'h100, 14);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
+         `CHECK_EQUAL(byte_mask, 4'b0001);
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(addr, 'h900);
-         `CHECK_EQUAL(wr_data, 'h11);
+         `CHECK_EQUAL(wr_data, 'h11111111);
+      end
+      `TEST_CASE("SB offsets") begin
+         // vunit: .execute
+         // vunit: .sb
+         // SB [x0+0x21], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SB, 0, 'h21, 15);
+         `CHECK_EQUAL(wr_valid, 0);
+         next_cycle();
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b0010);
+         `CHECK_EQUAL(addr, 'h21);
+         `CHECK_EQUAL(wr_data, 'h44444444);
+         `CHECK_EQUAL(finished, 1);
+
+         // SB [x0+0x22], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SB, 0, 'h22, 15);
+         `CHECK_EQUAL(wr_valid, 0);
+         next_cycle();
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b0100);
+         `CHECK_EQUAL(addr, 'h22);
+         `CHECK_EQUAL(wr_data, 'h44444444);
+         `CHECK_EQUAL(finished, 1);
+
+         // SB [x0+0x23], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SB, 0, 'h23, 15);
+         `CHECK_EQUAL(wr_valid, 0);
+         next_cycle();
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b1000);
+         `CHECK_EQUAL(addr, 'h23);
+         `CHECK_EQUAL(wr_data, 'h44444444);
+         `CHECK_EQUAL(finished, 1);
       end
       `TEST_CASE("SH") begin
          // vunit: .execute
          // vunit: .sh
-         // SH [x0+0xABC], x15
+         // SH [x0+0x7BC], x15
          SETREG(15, 'h11223344);
          inst <= S(`STORE, `SH, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b0011);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h00003344);
+         `CHECK_EQUAL(wr_data, 32'h33443344);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h00003344);
+         `CHECK_EQUAL(wr_data, 32'h33443344);
+         `CHECK_EQUAL(finished, 1);
+
+         // Prepare next instruction
+         inst <= 0;
+         next_cycle(); // <- On this edge BRAM should write 2nd byte
+         `CHECK_EQUAL(wr_valid, 0);
+         `CHECK_EQUAL(finished, 1);
+      end
+      `TEST_CASE("SH offset") begin
+         // vunit: .execute
+         // vunit: .sh
+         // SH [x0+0x22], x15
+         SETREG(15, 'h11223344);
+         inst <= S(`STORE, `SH, 0, 'h22, 15);
+         `CHECK_EQUAL(wr_valid, 0);
+         #1
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b1100);
+         `CHECK_EQUAL(addr, 'h22);
+         `CHECK_EQUAL(wr_data, 32'h33443344);
+         next_cycle();
+         `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(finished, 1);
+         `CHECK_EQUAL(byte_mask, 4'b1100);
+         `CHECK_EQUAL(addr, 'h22);
+         `CHECK_EQUAL(wr_data, 32'h33443344);
          `CHECK_EQUAL(finished, 1);
 
          // Prepare next instruction
@@ -510,11 +576,13 @@ module execute_tb;
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b1111);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(byte_mask, 4'b1111);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
 
@@ -822,6 +890,7 @@ module execute_tb;
       .o_data(wr_data),
       .o_wr_valid(wr_valid),
       .i_wr_ready(wr_ready),
+      .o_byte_write_enable(byte_mask),
 
       .i_data(rd_data),
       .i_rd_valid(rd_valid),

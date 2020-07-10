@@ -118,6 +118,7 @@ module memmap_tb;
       .i_wr_valid(cpu_wr_valid),
       .o_wr_ready(cpu_wr_ready),
       .o_cpu_data(cpu_data_in),
+      .i_cpu_bwe(4'b1111),
       .o_rd_valid(cpu_rd_valid),
       .i_rd_ready(cpu_rd_ready),
 

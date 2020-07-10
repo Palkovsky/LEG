@@ -4,16 +4,18 @@ module bram #(
 	DATA_WIDTH,
 	ADDR_WIDTH
 )(
-	input                       i_clk,
-  input [DATA_WIDTH-1:0]      i_data,
-  input [ADDR_WIDTH-1:0]      i_addr,
-  input                       i_write,
-  output reg [DATA_WIDTH-1:0] o_data
+  input                         i_clk,
+  input [DATA_WIDTH/8-1:0][7:0] i_data,
+  input [ADDR_WIDTH-1:0]        i_addr,
+  input                         i_write,
+  input [DATA_WIDTH/8-1:0]      i_byte_write_enable, 
+  output reg [DATA_WIDTH-1:0]   o_data
 );
 	 localparam
      RAM_SIZE=1<<ADDR_WIDTH;
+   localparam WORD_BYTES = DATA_WIDTH / 8;
 
-   reg [DATA_WIDTH-1:0]       mem[0:RAM_SIZE-1];
+   reg [WORD_BYTES-1:0][7:0]  mem[0:RAM_SIZE-1];
 
 	initial begin
      /*
@@ -104,11 +106,23 @@ module bram #(
       */
 	end
 
-	 always @(posedge i_clk) begin
-      o_data <= mem[i_addr];
-      if (i_write)
-        mem[i_addr] <= i_data;
-	 end
+  always @(posedge i_clk) begin
+     o_data <= mem[i_addr];
+     if (i_write) begin
+        if (i_byte_write_enable[0]) begin
+           mem[i_addr][0] <= i_data[0];
+        end
+        if (i_byte_write_enable[1]) begin
+           mem[i_addr][1] <= i_data[1];
+        end
+        if (i_byte_write_enable[2]) begin
+           mem[i_addr][2] <= i_data[2];
+        end
+        if (i_byte_write_enable[3]) begin
+           mem[i_addr][3] <= i_data[3];
+        end
+     end
+  end
 endmodule
 
 // Wrapper for bram with support of ready/valid protocol.
@@ -116,17 +130,18 @@ module bram_rv #(
  DATA_WIDTH,
  ADDR_WIDTH
 )(
-	input                       i_clk,
-  input                       i_rst,
-  input [ADDR_WIDTH-1:0]      i_addr,
+  input                          i_clk,
+  input                          i_rst,
+  input [ADDR_WIDTH-1:0]         i_addr,
 
-  input [DATA_WIDTH-1:0]      i_data,
-  input                       i_wr_valid,
-  output reg                  o_wr_ready,
+  input [DATA_WIDTH-1:0]         i_data,
+  input                          i_wr_valid,
+  output reg                     o_wr_ready,
 
-  output reg [DATA_WIDTH-1:0] o_data,
-  output reg                  o_rd_valid,
-  input                       i_rd_ready
+  output reg [DATA_WIDTH-1:0]    o_data,
+  output reg                     o_rd_valid,
+  input                          i_rd_ready,
+  input logic [DATA_WIDTH/8-1:0] i_byte_write_enable
 );
 
    reg [DATA_WIDTH-1:0]  bram_data_in;
@@ -161,6 +176,7 @@ module bram_rv #(
        .i_data(bram_data_in),
        .i_addr(i_addr),
        .i_write(bram_write),
+       .i_byte_write_enable(i_byte_write_enable),
        .o_data(bram_data_out)
       );
 endmodule

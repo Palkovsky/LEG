@@ -2,32 +2,33 @@
 
 module memmap
   (
-   input                        i_clk,
-   input                        i_rst,
+   input                           i_clk,
+   input                           i_rst,
    // CPU interface
-   input [31:0]                 i_cpu_addr,
+   input [31:0]                    i_cpu_addr,
    // Writing
-   input [`DATA_WIDTH-1:0]      i_cpu_data,
-   input                        i_wr_valid,
-   output reg                   o_wr_ready,
+   input [`DATA_WIDTH-1:0]         i_cpu_data,
+   input                           i_wr_valid,
+   input logic [`DATA_WIDTH/8-1:0] i_cpu_bwe, // Memory write bytemask
+   output reg                      o_wr_ready,
    // Reading
-   output reg [`DATA_WIDTH-1:0] o_cpu_data,
-   output reg                   o_rd_valid,
-   input                        i_rd_ready,
+   output reg [`DATA_WIDTH-1:0]    o_cpu_data,
+   output reg                      o_rd_valid,
+   input                           i_rd_ready,
 
    // MMIO
-   output reg [31:0]            o_mmio_addr,
+   output reg [31:0]               o_mmio_addr,
    // Reading
-   input [`DATA_WIDTH-1:0]      i_mmio_data,
-   input                        i_mmio_rd_valid,
-   output reg                   o_mmio_rd_ready,
+   input [`DATA_WIDTH-1:0]         i_mmio_data,
+   input                           i_mmio_rd_valid,
+   output reg                      o_mmio_rd_ready,
    // Writing
-   output reg [`DATA_WIDTH-1:0] o_mmio_data,
-   output reg                   o_mmio_wr_valid,
-   input                        i_mmio_wr_ready,
+   output reg [`DATA_WIDTH-1:0]    o_mmio_data,
+   output reg                      o_mmio_wr_valid,
+   input                           i_mmio_wr_ready,
 
    // Control signals
-   output reg                   o_invalid_addr
+   output reg                      o_invalid_addr
  );
    localparam
      BRAM_SIZE = 1<<`BRAM_WIDTH,
@@ -89,6 +90,7 @@ module memmap
       .i_addr(bram_addr_low),
 
       .i_data(bram_data_in),
+      .i_byte_write_enable(i_cpu_bwe),
       .i_wr_valid(bram_wr_valid),
       .o_wr_ready(bram_wr_ready),
 

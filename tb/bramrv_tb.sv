@@ -103,6 +103,7 @@ module bramrv_tb;
     .i_data(data_in),
     .i_wr_valid(wr_valid),
     .o_wr_ready(wr_ready),
+    .i_byte_write_enable(4'b1111),
 
     .o_data(data_out),
     .o_rd_valid(rd_valid),
