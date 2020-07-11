@@ -35,26 +35,28 @@ module uartwriter
    // Reading
    wire [7:0]                  tx_fifo_out;
    wire                        tx_fifo_empty;
-   reg                         tx_fifo_rd = 0;
+   reg                         tx_fifo_rd;
    // Writing
    reg [7:0]                   tx_fifo_in = 0;
    wire                        tx_fifo_full;
    reg                         tx_fifo_wr = 0;
 
    // UART TX
-   reg                         tx_trigger = 0;
+   reg                         tx_valid = 0;
    reg [7:0]                   tx_byte = 0;
-   wire                        tx_transmitting;
+   wire                        tx_ack;
 
    /*
     * TX and FIFO reading
     */
+   assign tx_fifo_rd = (tx_state == TX_IDLE && !tx_fifo_empty);
+
    always @(posedge i_clk) begin
       if (i_rst) begin
          tx_state <= TX_IDLE;
          {
           tx_byte,
-          tx_trigger
+          tx_valid
          } <= 0;
       end
       else begin
@@ -68,22 +70,18 @@ module uartwriter
            end
            TX_FETCHING: begin
               tx_byte <= tx_fifo_out;
-              tx_trigger <= 1;
+              tx_valid <= 1;
               tx_state <= TX_SENDING;
            end
            TX_SENDING: begin
-              tx_trigger <= 0;
-              if (!tx_transmitting && !tx_trigger)
-                tx_state <= TX_IDLE;
+              tx_valid <= 1;
+              if (tx_ack) begin
+                 tx_valid <= 0;
+                 tx_state <= TX_IDLE;
+              end
            end
       endcase
       end
-   end
-
-   always_comb begin
-      tx_fifo_rd <= 0;
-      if (tx_state == TX_IDLE)
-        tx_fifo_rd <= (tx_fifo_empty) ? 1'b0 : 1'b1;
    end
 
    /*
@@ -112,8 +110,6 @@ module uartwriter
    reg [7:0]                   rx_buff = 0;
    reg                         rx_present = 0;
    wire                        rx_received;
-   wire                        rx_receiving;
-   wire                        rx_err;
    assign o_rx_present = rx_present;
 
    /*
@@ -128,7 +124,7 @@ module uartwriter
            { rx_buff, rx_present } <= 0;
 
          // New byte received. This will overwrite the buffer.
-         if (rx_received && !rx_err)
+         if (rx_received)
             { rx_buff, rx_present } <= { rx_byte, 1'b1 };
       end
    end
@@ -162,14 +158,14 @@ module uartwriter
      (
       .clk(i_clk),
       .rst(i_rst),
-      .rx(i_rx),
-      .tx(o_tx),
-      .transmit(tx_trigger),
-      .tx_byte(tx_byte),
-      .is_transmitting(tx_transmitting),
-      .received(rx_received),
-      .rx_byte(rx_byte),
-      .is_receiving(rx_receiving),
-      .recv_error(rx_err)
+
+      .txd(o_tx),
+      .tx_data(tx_byte),
+      .tx_data_valid(tx_valid),
+      .tx_data_ack(tx_ack),
+
+      .rxd(i_rx),
+      .rx_data_fresh(rx_received),
+      .rx_data(rx_byte)
      );
 endmodule

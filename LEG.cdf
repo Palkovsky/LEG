@@ -4,7 +4,7 @@ JedecChain;
 	DefaultMfr(6E);
 
 	P ActionCode(Cfg)
-		Device PartName(EP4CE6E22) Path("//vmware-host/Shared Folders/F/LEG/") File("LEG.sof") MfrSpec(OpMask(1));
+		Device PartName(10M50DAF484) Path("//Vboxsvr/f_drive/LEG/") File("LEG.sof") MfrSpec(OpMask(1));
 
 ChainEnd;
 

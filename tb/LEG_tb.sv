@@ -24,7 +24,7 @@ module LEG_tb;
       `TEST_CASE("top") begin
          // vunit: .top
          // CMD: python test.py --with-attribute .top --gui
-         for (int i=0; i<100; i++) begin
+         for (int i=0; i<500; i++) begin
             next_cycle();
          end
       end
