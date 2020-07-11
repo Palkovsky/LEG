@@ -13,7 +13,7 @@ module execute (
   output reg [`DATA_WIDTH-1:0] o_data = 0,
   output reg                   o_wr_valid = 0,
   input                        i_wr_ready,
-  output logic [2:0]           o_wr_width,
+  output reg [2:0]             o_wr_width,
   // Reads
   input [`DATA_WIDTH-1:0]      i_data,
   input                        i_rd_valid,

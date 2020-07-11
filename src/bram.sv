@@ -8,7 +8,7 @@ module bram #(
   input [DATA_WIDTH/8-1:0][7:0] i_data,
   input [ADDR_WIDTH-1:0]        i_addr,
   input                         i_write,
-  input [DATA_WIDTH/8-1:0]      i_byte_write_enable, 
+  input [DATA_WIDTH/8-1:0]      i_byte_write_enable,
   output reg [DATA_WIDTH-1:0]   o_data
 );
 	 localparam
@@ -65,6 +65,52 @@ module bram #(
      mem[64] = 32'h41424344;
       */
 
+    /*
+     * Tests unaligned memory accesses.
+     * Expected print order: 3, 4, 1, 2
+     * # Base addrs
+     * 0: ADDI x15, x0, -1
+     * 1: ADDI x14, x0, 0x100
+     * # x1='4321'
+     * store:
+     * 2: LUI x1, 0x34333
+     * 3: ADDI x1, x1, 0x231
+     * # Store x1 on addr 0x100
+     * 4: SB x1, 0(x14)
+     * 5: SRAI x1, x1, 8
+     * 6: SB x1, 1(x14)
+     * 7: SRAI x1, x1, 8
+     * 8: SH x1, 2(x14)
+     * load:
+     * 9: LBU x1, 2(x14) # x1 = 'xxx3'
+     * 10: SB x1, 0(x15)
+     * 11: LBU x1, 3(x14) # x1 = 'xxx4'
+     * 12: SB x1, 0(x15)
+     * 13: LHU x1, 0(x14) # x1 = 'xx21'
+     * 14: SB x1, 0(x15)
+     * 15: SRAI x1, x1, 8
+     * 16: SB x1, 0(x15)
+     * 17: JAL store
+     */
+     mem[00] = 32'hfff00793;
+		 mem[01] = 32'h10000713;
+     mem[02] = 32'h343330b7;
+     mem[03] = 32'h23108093;
+     mem[04] = 32'h00170023;
+     mem[05] = 32'h4080d093;
+     mem[06] = 32'h001700a3;
+     mem[07] = 32'h4080d093;
+     mem[08] = 32'h00171123;
+     mem[09] = 32'h00274083;
+     mem[10] = 32'h00178023;
+     mem[11] = 32'h00374083;
+     mem[12] = 32'h00178023;
+     mem[13] = 32'h00075083;
+     mem[14] = 32'h00178023;
+     mem[15] = 32'h4080d093;
+     mem[16] = 32'h00178023;
+     mem[17] = 32'hfc5ff0ef;
+
 	  /*
      * # Echo with I/O wait.
      * 0: ADDI x14, x0, -2 # 0xFFFFFFFE
@@ -75,13 +121,12 @@ module bram #(
      * # Write to TX FIFO
      * 3: SB x3, 0(x13) # This would hang if the FIFO was full.
      * 4: JAL x0, echo
-	  */
 	   mem[00] = 32'hffe00713;
 	   mem[01] = 32'hfff00693;
      mem[02] = 32'h00070183;
      mem[03] = 32'h00368023;
      mem[04] = 32'hff9ff06f;
-
+	  */
 
      /*
       * # Trying to overflow TX FIFO

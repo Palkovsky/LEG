@@ -139,7 +139,7 @@ module core (
       .o_data(exec_data_out),
       .o_wr_valid(exec_wr_valid),
       .i_wr_ready(exec_wr_ready),
-      .o_wr_width(o_write_width),
+      .o_wr_width(o_wr_width),
       .i_data(exec_data_in),
       .i_rd_valid(exec_rd_valid),
       .o_rd_ready(exec_rd_ready),
