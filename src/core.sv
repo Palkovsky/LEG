@@ -26,7 +26,6 @@ module core (
    // PC register.
    reg [31:0]                  pc = 0;
 
-
    // Control signals.
    reg [STATE_SZ-1:0]     state = FETCH_STATE;
    wire                   pc_change;
@@ -130,8 +129,8 @@ module core (
 
    execute execute
      (
-	    .i_clk(i_clk),
-	    .i_rst(exec_rst),
+	   .i_clk(i_clk),
+	   .i_rst(exec_rst),
       .i_inst(inst),
 
       .o_addr(exec_addr),

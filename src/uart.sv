@@ -1,193 +1,199 @@
-`include "common.svh"
+module uart_tx (clk,rst,tx_data,tx_data_valid,tx_data_ack,txd);
+output txd;
+input clk, rst;
+input [7:0] tx_data;
+input tx_data_valid;
+output tx_data_ack;
 
-module uart(
-    input clk,             // The master clock for this module
-    input rst,             // Synchronous reset.
-    input rx,              // Incoming serial line
-    output tx,             // Outgoing serial line
-    input transmit,         // Signal to transmit
-    input [7:0] tx_byte,    // Byte to transmit
-    output received,        // Indicated that a byte has been received.
-    output [7:0] rx_byte,   // Byte received
-    output is_receiving,    // Low when receive line is idle.
-    output is_transmitting, // Low when transmit line is idle.
-    output recv_error       // Indicates error in receiving packet.
- );
+parameter BAUD_DIVISOR = 868;
 
-// clock rate (50Mhz) / (baud rate * 4)
-   parameter CLOCK_DIVIDE = 50000000/(`UART_BAUD_RATE * 4);
+reg [15:0] sample_cntr = 0;
+reg [10:0] tx_shift = {11'b00000000001};
+reg sample_now = 0;
+reg tx_data_ack = 0;
 
-// States for the receiving state machine.
-// These are just constants, not parameters to override.
-parameter RX_IDLE = 0;
-parameter RX_CHECK_START = 1;
-parameter RX_READ_BITS = 2;
-parameter RX_CHECK_STOP = 3;
-parameter RX_DELAY_RESTART = 4;
-parameter RX_ERROR = 5;
-parameter RX_RECEIVED = 6;
-
-// States for the transmitting state machine.
-// Constants - do not override.
-parameter TX_IDLE = 0;
-parameter TX_SENDING = 1;
-parameter TX_DELAY_RESTART = 2;
-
-reg [10:0] rx_clk_divider = CLOCK_DIVIDE;
-reg [10:0] tx_clk_divider = CLOCK_DIVIDE;
-
-reg [2:0] recv_state = RX_IDLE;
-reg [5:0] rx_countdown;
-reg [3:0] rx_bits_remaining;
-reg [7:0] rx_data;
-
-reg tx_out = 1'b1;
-reg [1:0] tx_state = TX_IDLE;
-reg [5:0] tx_countdown;
-reg [3:0] tx_bits_remaining;
-reg [7:0] tx_data;
-
-assign received = recv_state == RX_RECEIVED;
-assign recv_error = recv_state == RX_ERROR;
-assign is_receiving = recv_state != RX_IDLE;
-assign rx_byte = rx_data;
-
-assign tx = tx_out;
-assign is_transmitting = tx_state != TX_IDLE;
+assign txd = tx_shift[0];
 
 always @(posedge clk) begin
 	if (rst) begin
-		recv_state = RX_IDLE;
-		tx_state = TX_IDLE;
+		sample_cntr <= 0;
+		sample_now <= 1'b0;
 	end
-
-	// The clk_divider counter counts down from
-	// the CLOCK_DIVIDE constant. Whenever it
-	// reaches 0, 1/16 of the bit period has elapsed.
-   // Countdown timers for the receiving and transmitting
-	// state machines are decremented.
-	rx_clk_divider = rx_clk_divider - 1;
-	if (!rx_clk_divider) begin
-		rx_clk_divider = CLOCK_DIVIDE;
-		rx_countdown = rx_countdown - 1;
+	else if (sample_cntr == (BAUD_DIVISOR-1)) begin
+		sample_cntr <= 0;
+		sample_now <= 1'b1;
+   	end
+	else begin
+		sample_now <= 1'b0;
+		sample_cntr <= sample_cntr + 1'b1;
 	end
-	tx_clk_divider = tx_clk_divider - 1;
-	if (!tx_clk_divider) begin
-		tx_clk_divider = CLOCK_DIVIDE;
-		tx_countdown = tx_countdown - 1;
-	end
-
-	// Receive state machine
-	case (recv_state)
-		RX_IDLE: begin
-			// A low pulse on the receive line indicates the
-			// start of data.
-			if (!rx) begin
-				// Wait half the period - should resume in the
-				// middle of this first pulse.
-				rx_clk_divider = CLOCK_DIVIDE;
-				rx_countdown = 2;
-				recv_state = RX_CHECK_START;
-			end
-		end
-		RX_CHECK_START: begin
-			if (!rx_countdown) begin
-				// Check the pulse is still there
-				if (!rx) begin
-					// Pulse still there - good
-					// Wait the bit period to resume half-way
-					// through the first bit.
-					rx_countdown = 4;
-					rx_bits_remaining = 8;
-					recv_state = RX_READ_BITS;
-				end else begin
-					// Pulse lasted less than half the period -
-					// not a valid transmission.
-					recv_state = RX_ERROR;
-				end
-			end
-		end
-		RX_READ_BITS: begin
-			if (!rx_countdown) begin
-				// Should be half-way through a bit pulse here.
-				// Read this bit in, wait for the next if we
-				// have more to get.
-				rx_data = {rx, rx_data[7:1]};
-				rx_countdown = 4;
-				rx_bits_remaining = rx_bits_remaining - 1;
-				recv_state = rx_bits_remaining ? RX_READ_BITS : RX_CHECK_STOP;
-			end
-		end
-		RX_CHECK_STOP: begin
-			if (!rx_countdown) begin
-				// Should resume half-way through the stop bit
-				// This should be high - if not, reject the
-				// transmission and signal an error.
-				recv_state = rx ? RX_RECEIVED : RX_ERROR;
-			end
-		end
-		RX_DELAY_RESTART: begin
-			// Waits a set number of cycles before accepting
-			// another transmission.
-			recv_state = rx_countdown ? RX_DELAY_RESTART : RX_IDLE;
-		end
-		RX_ERROR: begin
-			// There was an error receiving.
-			// Raises the recv_error flag for one clock
-			// cycle while in this state and then waits
-			// 2 bit periods before accepting another
-			// transmission.
-			rx_countdown = 8;
-			recv_state = RX_DELAY_RESTART;
-		end
-		RX_RECEIVED: begin
-			// Successfully received a byte.
-			// Raises the received flag for one clock
-			// cycle while in this state.
-			recv_state = RX_IDLE;
-		end
-	endcase
-
-	// Transmit state machine
-	case (tx_state)
-		TX_IDLE: begin
-			if (transmit) begin
-				// If the transmit flag is raised in the idle
-				// state, start transmitting the current content
-				// of the tx_byte input.
-				tx_data = tx_byte;
-				// Send the initial, low pulse of 1 bit period
-				// to signal the start, followed by the data
-				tx_clk_divider = CLOCK_DIVIDE;
-				tx_countdown = 4;
-				tx_out = 0;
-				tx_bits_remaining = 8;
-				tx_state = TX_SENDING;
-			end
-		end
-		TX_SENDING: begin
-			if (!tx_countdown) begin
-				if (tx_bits_remaining) begin
-					tx_bits_remaining = tx_bits_remaining - 1;
-					tx_out = tx_data[0];
-					tx_data = {1'b0, tx_data[7:1]};
-					tx_countdown = 4;
-					tx_state = TX_SENDING;
-				end else begin
-					// Set delay to send out 2 stop bits.
-					tx_out = 1;
-					tx_countdown = 8;
-					tx_state = TX_DELAY_RESTART;
-				end
-			end
-		end
-		TX_DELAY_RESTART: begin
-			// Wait until tx_countdown reaches the end before
-			// we send another transmission. This covers the
-			// "stop bit" delay.
-			tx_state = tx_countdown ? TX_DELAY_RESTART : TX_IDLE;
-		end
-	endcase
 end
+
+reg ready = 1'b1;
+always @(posedge clk) begin
+	if (rst) begin
+		tx_shift <= {11'b00000000001};
+		ready <= 1'b1;
+	end
+	else begin
+		if (!ready & sample_now) begin
+			tx_shift <= {1'b0,tx_shift[10:1]};
+			tx_data_ack <= 1'b0;
+			ready <= ~|tx_shift[10:1];
+		end
+		else if (ready & tx_data_valid) begin
+			tx_shift[10:1] <= {1'b1,tx_data,1'b0};
+			tx_data_ack <= 1'b1;
+			ready <= 1'b0;
+		end
+		else begin
+			tx_data_ack <= 1'b0;
+			ready <= ~|tx_shift[10:1];
+		end
+	end
+end
+
+endmodule
+
+////////////////////////////////////////////////////////////////////
+
+module uart_rx (clk,rst,rx_data,rx_data_fresh,rxd);
+
+input clk, rst, rxd;
+output [7:0] rx_data;
+output rx_data_fresh;
+
+parameter BAUD_DIVISOR = 868;
+
+reg [15:0] sample_cntr = 0;
+reg [7:0] rx_shift = 0;
+reg sample_now = 0;
+reg [7:0] rx_data = 0;
+reg rx_data_fresh = 0;
+
+reg last_rxd;
+always @(posedge clk) begin
+	last_rxd <= rxd;
+end
+wire slew = rxd ^ last_rxd;
+
+always @(posedge clk) begin
+	if (rst) begin
+		sample_cntr <= 0;
+		sample_now <= 1'b0;
+	end
+	else if (sample_cntr == (BAUD_DIVISOR-1) || slew) begin
+		sample_cntr <= 0;
+	end
+	else if (sample_cntr == (BAUD_DIVISOR/2)) begin
+		sample_now <= 1'b1;
+		sample_cntr <= sample_cntr + 1'b1;
+	end
+	else begin
+		sample_now <= 1'b0;
+		sample_cntr <= sample_cntr + 1'b1;
+	end
+end
+
+parameter WAITING = 2'b00, READING = 2'b01, STOP = 2'b10, RECOVER = 2'b11;
+reg [1:0] state = WAITING;
+reg [3:0] held_bits = 0;
+
+always @(posedge clk) begin
+	if (rst) begin
+		state <= WAITING;
+		held_bits <= 0;
+		rx_shift <= 0;
+		rx_data_fresh <= 1'b0;
+		rx_data <= 0;
+	end
+	else begin
+		rx_data_fresh <= 1'b0;
+		case (state)
+			WAITING : begin
+				// wait for a start bit (0)
+				if (!slew & sample_now && !last_rxd) begin
+					state <= READING;
+					held_bits <= 0;
+				end
+			end
+			READING : begin
+				// gather data bits
+				if (sample_now) begin
+					rx_shift <= {last_rxd,rx_shift[7:1]};
+					held_bits <= held_bits + 1'b1;
+					if (held_bits == 4'h7) state <= STOP;
+				end
+			end
+			STOP : begin
+				// verify stop bit (1)
+				if (sample_now) begin
+					if (last_rxd) begin
+						rx_data <= rx_shift;
+						rx_data_fresh <= 1'b1;
+						state <= WAITING;
+					end
+					else begin
+						// there was a framing error -
+						// discard the byte and work on resync
+						state <= RECOVER;
+					end
+				end
+			end
+			RECOVER : begin
+				// wait for an idle (1) then resume
+				if (sample_now) begin
+					if (last_rxd) state <= WAITING;
+				end
+			end
+		endcase
+	end
+end
+
+endmodule
+
+////////////////////////////////////////////////////////////////////
+`include "common.svh"
+module uart (clk,rst,
+			tx_data,tx_data_valid,tx_data_ack,txd,
+			rx_data,rx_data_fresh,rxd);
+
+parameter CLK_HZ = 50_000_000;
+parameter BAUD = `UART_BAUD_RATE;
+parameter BAUD_DIVISOR = CLK_HZ / BAUD;
+
+initial begin
+	if (BAUD_DIVISOR > 16'hffff) begin
+		// This rate is too slow for the TX and RX sample
+		// counter resolution
+		$display ("Error - Increase the size of the sample counters");
+		$stop();
+	end
+end
+
+output txd;
+input clk, rst, rxd;
+input [7:0] tx_data;
+input tx_data_valid;
+output tx_data_ack;
+output [7:0] rx_data;
+output rx_data_fresh;
+
+uart_tx utx (
+	.clk(clk),.rst(rst),
+	.tx_data(tx_data),
+	.tx_data_valid(tx_data_valid),
+	.tx_data_ack(tx_data_ack),
+	.txd(txd));
+
+defparam utx .BAUD_DIVISOR = BAUD_DIVISOR;
+
+uart_rx urx (
+	.clk(clk),.rst(rst),
+	.rx_data(rx_data),
+	.rx_data_fresh(rx_data_fresh),
+	.rxd(rxd));
+
+defparam urx .BAUD_DIVISOR = BAUD_DIVISOR;
 
 endmodule
