@@ -17,7 +17,7 @@ module execute_tb;
    wire [`DATA_WIDTH-1:0] wr_data;
    wire                   wr_valid;
    reg                    wr_ready;
-   wire [3:0]             byte_mask;
+   wire [2:0]             wr_width;
 
    reg [31:0]  inst;
 
@@ -29,13 +29,15 @@ module execute_tb;
 
    // Simulate memory.
    always_comb begin
+      static logic [`DATA_WIDTH-1:0] temp = 0;
       case (addr[31:2])
-        0: data_sim = 32'hDDCCBBAA;
-        1: data_sim = 32'hFFEE5544;
-        2: data_sim = 32'hFFEEDDCC;
-        4: data_sim = 32'h44332211;
-        default: data_sim = 0;
+        0: temp = 32'hDDCCBBAA;
+        1: temp = 32'hFFEE5544;
+        2: temp = 32'hFFEEDDCC;
+        4: temp = 32'h44332211;
+        default: temp = 0;
       endcase
+      data_sim = temp >> (addr[1:0] * 8);
    end
    assign wr_ready = 1;
    always @(posedge clk) begin
@@ -464,9 +466,9 @@ module execute_tb;
          `CHECK_EQUAL(wr_valid, 0);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b0001);
+         `CHECK_EQUAL(wr_width, 1);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 'h44444444);
+         `CHECK_EQUAL(wr_data, 'h11223344);
          `CHECK_EQUAL(finished, 1);
 
          // SB [x1+0x100], x14
@@ -475,46 +477,10 @@ module execute_tb;
          inst <= S(`STORE, `SB, 1, 'h100, 14);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
-         `CHECK_EQUAL(byte_mask, 4'b0001);
+         `CHECK_EQUAL(wr_width, 1);
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(addr, 'h900);
-         `CHECK_EQUAL(wr_data, 'h11111111);
-      end
-      `TEST_CASE("SB offsets") begin
-         // vunit: .execute
-         // vunit: .sb
-         // SB [x0+0x21], x15
-         SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SB, 0, 'h21, 15);
-         `CHECK_EQUAL(wr_valid, 0);
-         next_cycle();
-         `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b0010);
-         `CHECK_EQUAL(addr, 'h21);
-         `CHECK_EQUAL(wr_data, 'h44444444);
-         `CHECK_EQUAL(finished, 1);
-
-         // SB [x0+0x22], x15
-         SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SB, 0, 'h22, 15);
-         `CHECK_EQUAL(wr_valid, 0);
-         next_cycle();
-         `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b0100);
-         `CHECK_EQUAL(addr, 'h22);
-         `CHECK_EQUAL(wr_data, 'h44444444);
-         `CHECK_EQUAL(finished, 1);
-
-         // SB [x0+0x23], x15
-         SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SB, 0, 'h23, 15);
-         `CHECK_EQUAL(wr_valid, 0);
-         next_cycle();
-         `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b1000);
-         `CHECK_EQUAL(addr, 'h23);
-         `CHECK_EQUAL(wr_data, 'h44444444);
-         `CHECK_EQUAL(finished, 1);
+         `CHECK_EQUAL(wr_data, 'h44332211);
       end
       `TEST_CASE("SH") begin
          // vunit: .execute
@@ -525,40 +491,14 @@ module execute_tb;
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b0011);
+         `CHECK_EQUAL(wr_width, 2);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h33443344);
+         `CHECK_EQUAL(wr_data, 32'h11223344);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h33443344);
-         `CHECK_EQUAL(finished, 1);
-
-         // Prepare next instruction
-         inst <= 0;
-         next_cycle(); // <- On this edge BRAM should write 2nd byte
-         `CHECK_EQUAL(wr_valid, 0);
-         `CHECK_EQUAL(finished, 1);
-      end
-      `TEST_CASE("SH offset") begin
-         // vunit: .execute
-         // vunit: .sh
-         // SH [x0+0x22], x15
-         SETREG(15, 'h11223344);
-         inst <= S(`STORE, `SH, 0, 'h22, 15);
-         `CHECK_EQUAL(wr_valid, 0);
-         #1
-         `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b1100);
-         `CHECK_EQUAL(addr, 'h22);
-         `CHECK_EQUAL(wr_data, 32'h33443344);
-         next_cycle();
-         `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(finished, 1);
-         `CHECK_EQUAL(byte_mask, 4'b1100);
-         `CHECK_EQUAL(addr, 'h22);
-         `CHECK_EQUAL(wr_data, 32'h33443344);
+         `CHECK_EQUAL(wr_data, 32'h11223344);
          `CHECK_EQUAL(finished, 1);
 
          // Prepare next instruction
@@ -576,13 +516,13 @@ module execute_tb;
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b1111);
+         `CHECK_EQUAL(wr_width, 4);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(wr_valid, 1);
-         `CHECK_EQUAL(byte_mask, 4'b1111);
+         `CHECK_EQUAL(wr_width, 4);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
 
@@ -797,25 +737,6 @@ module execute_tb;
          `CHECK_EQUAL(execute.X[2], 32'hFFFFDDCC);
          `CHECK_EQUAL(finished, 1);
       end
-      `TEST_CASE("LH offset 2") begin
-         // vunit: .execute
-         // vunit: .lh2
-         // LH x2, [x0 + 10]
-         inst <= I(`LOAD, `LH, 2, 0, 10);
-         `CHECK_EQUAL(addr, 0);
-         `CHECK_EQUAL(execute.X[2], 'h00);
-         `CHECK_EQUAL(finished, 1);
-         #1
-         `CHECK_EQUAL(addr, 10);
-         `CHECK_EQUAL(finished, 0);
-         next_cycle();
-         `CHECK_EQUAL(execute.X[2], 'h0000);
-         `CHECK_EQUAL(rd_data, 32'hFFEEDDCC);
-         `CHECK_EQUAL(finished, 1);
-         next_cycle();
-         `CHECK_EQUAL(execute.X[2], 32'hFFFFFFEE);
-         `CHECK_EQUAL(finished, 1);
-      end
       `TEST_CASE("LHU") begin
          // vunit: .execute
          // vunit: .lhu
@@ -831,25 +752,6 @@ module execute_tb;
          next_cycle();
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(execute.X[1], 32'h0000DDCC);
-      end
-      `TEST_CASE("LHU offset 2") begin
-         // vunit: .execute
-         // vunit: .lhu2
-         // LHU x2, [x0 + 10]
-         inst <= I(`LOAD, `LHU, 2, 0, 10);
-         `CHECK_EQUAL(addr, 0);
-         `CHECK_EQUAL(execute.X[2], 'h00);
-         `CHECK_EQUAL(finished, 1);
-         #1
-         `CHECK_EQUAL(addr, 10);
-         `CHECK_EQUAL(finished, 0);
-         next_cycle();
-         `CHECK_EQUAL(execute.X[2], 'h0000);
-         `CHECK_EQUAL(rd_data, 32'hFFEEDDCC);
-         `CHECK_EQUAL(finished, 1);
-         next_cycle();
-         `CHECK_EQUAL(execute.X[2], 32'h0000FFEE);
-         `CHECK_EQUAL(finished, 1);
       end
       `TEST_CASE("LW") begin
          // vunit: .execute
@@ -880,8 +782,8 @@ module execute_tb;
 
    execute execute
      (
-	    .i_clk(clk),
-	    .i_rst(rst),
+      .i_clk(clk),
+      .i_rst(rst),
 
       .i_inst(inst),
 
@@ -890,7 +792,7 @@ module execute_tb;
       .o_data(wr_data),
       .o_wr_valid(wr_valid),
       .i_wr_ready(wr_ready),
-      .o_byte_write_enable(byte_mask),
+      .o_wr_width(wr_width),
 
       .i_data(rd_data),
       .i_rd_valid(rd_valid),

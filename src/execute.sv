@@ -1,30 +1,30 @@
 `include "common.svh"
 
 module execute (
-	input                            i_clk,
-	input                            i_rst,
+  input                        i_clk,
+  input                        i_rst,
 
   // Instruction
-  input [31:0]                     i_inst,
+  input [31:0]                 i_inst,
 
   // Memory interface
-  output reg [31:0]                o_addr = 0,
+  output reg [31:0]            o_addr = 0,
   // Writes
-  output reg [`DATA_WIDTH-1:0]     o_data = 0,
-  output reg                       o_wr_valid = 0,
-  input                            i_wr_ready,
-  output logic [`DATA_WIDTH/8-1:0] o_byte_write_enable,
+  output reg [`DATA_WIDTH-1:0] o_data = 0,
+  output reg                   o_wr_valid = 0,
+  input                        i_wr_ready,
+  output logic [2:0]           o_wr_width,
   // Reads
-  input [`DATA_WIDTH-1:0]          i_data,
-  input                            i_rd_valid,
-  output reg                       o_rd_ready = 0,
+  input [`DATA_WIDTH-1:0]      i_data,
+  input                        i_rd_valid,
+  output reg                   o_rd_ready = 0,
 
   // Control unit interface
-  input [31:0]                     i_pc,
-  output reg                       o_pc_change = 0,
-  output reg [31:0]                o_new_pc = 0,
-  output reg                       o_finished,
-  output reg                       o_invalid_inst
+  input [31:0]                 i_pc,
+  output reg                   o_pc_change = 0,
+  output reg [31:0]            o_new_pc = 0,
+  output reg                   o_finished,
+  output reg                   o_invalid_inst
 );
    // Control signals
    reg [3:0]                   r_cycle = 0;
@@ -70,41 +70,13 @@ module execute (
       if (o_rd_ready && i_rd_valid) begin
          case (w_funct3)
            `LBU:
-             case (r_alu_result[1:0])
-               0:
-                 X[w_rd] <= { 24'b0, i_data[7:0] };
-               1:
-                 X[w_rd] <= { 24'b0, i_data[15:8] };
-               2:
-                 X[w_rd] <= { 24'b0, i_data[23:16] };
-               3:
-                 X[w_rd] <= { 24'b0, i_data[31:24] };
-             endcase
+             X[w_rd] <= { 24'b0, i_data[7:0] };
            `LB:
-             case (r_alu_result[1:0])
-               0:
-                 X[w_rd] = { {24{i_data[7]}}, i_data[7:0] };
-               1:
-                 X[w_rd] = { {24{i_data[15]}}, i_data[15:8] };
-               2:
-                 X[w_rd] = { {24{i_data[23]}}, i_data[23:16] };
-               3:
-                 X[w_rd] = { {24{i_data[31]}}, i_data[31:24] };
-             endcase
+             X[w_rd] <= { {24{i_data[7]}}, i_data[7:0] };
            `LHU:
-             case (r_alu_result[1:0])
-               0:
-                 X[w_rd] <= { 16'b0, i_data[15:0] };
-               2:
-                 X[w_rd] <= { 16'b0, i_data[31:16] };
-             endcase
+             X[w_rd] <= { 16'b0, i_data[15:0] };
            `LH:
-             case (r_alu_result[1:0])
-               0:
-                 X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
-               2:
-                 X[w_rd] <= { {16{i_data[31]}}, i_data[31:16] };
-             endcase
+             X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
            `LW:
              X[w_rd] <= i_data[31:0];
          endcase
@@ -121,26 +93,23 @@ module execute (
       o_data <= 0;
       o_addr <= 0;
       mem_transfer_done <= 0;
-      o_byte_write_enable <= 0;
+
+      case (w_funct3)
+        `SB:
+          o_wr_width <= 1;
+        `SH:
+          o_wr_width <= 2;
+        `SW:
+          o_wr_width <= 4;
+        default:
+          o_wr_width <= 0;
+      endcase
 
       if (w_opcode == `STORE) begin
          mem_transfer_done <= (o_wr_valid && i_wr_ready);
          o_wr_valid <= 1;
          o_addr <= r_alu_result;
-         case (w_funct3)
-           `SB: begin
-              o_data <= { 4{X[w_rs2][7:0]} };
-              o_byte_write_enable <= 1 << r_alu_result[1:0];
-           end
-           `SH: begin
-              o_data <= { 2{X[w_rs2][15:0]} };
-              o_byte_write_enable <= 'b11 << (r_alu_result[1] * 2);
-           end
-           `SW: begin
-              o_data <= X[w_rs2][31:0];
-              o_byte_write_enable <= 'b1111;
-           end
-         endcase
+         o_data <= X[w_rs2];
       end
       else if (w_opcode == `LOAD) begin
          mem_transfer_done <= (i_rd_valid && o_rd_ready);
@@ -173,9 +142,9 @@ module execute (
       );
 
    always_comb begin
-		  r_alu_operation <= 0;
-		  r_alu_op1 <= 0;
-		  r_alu_op2 <= 0;
+      r_alu_operation <= 0;
+      r_alu_op1 <= 0;
+      r_alu_op2 <= 0;
       r_alu_op3 <= 0;
       o_invalid_inst <= 0;
       case (w_opcode)

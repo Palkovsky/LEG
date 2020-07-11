@@ -73,7 +73,7 @@ module core_tb;
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(wr_ready, 0);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 'hC000C000);
+         `CHECK_EQUAL(wr_data[15:0], 16'hC000);
          `CHECK_EQUAL(core.state, EXEC_STATE);
          `CHECK_EQUAL(core.exec_finished, 0);
          `CHECK_EQUAL(core.execute.mem_transfer_done, 0);

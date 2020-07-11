@@ -19,7 +19,7 @@ module LEG(
    wire [`DATA_WIDTH-1:0]   cpu_data_out;
    wire                     cpu_wr_valid;
    reg                      cpu_wr_ready;
-   wire [`DATA_WIDTH/8-1:0] cpu_bwe;
+   wire [2:0]               cpu_wr_width;
    // Reading
    reg [`DATA_WIDTH-1:0]  cpu_data_in;
    reg                    cpu_rd_valid;
@@ -34,7 +34,7 @@ module LEG(
       .o_data(cpu_data_out),
       .o_wr_valid(cpu_wr_valid),
       .i_wr_ready(cpu_wr_ready),
-      .o_byte_write_enable(cpu_bwe),
+      .o_wr_width(cpu_wr_width),
       .i_data(cpu_data_in),
       .i_rd_valid(cpu_rd_valid),
       .o_rd_ready(cpu_rd_ready),
@@ -131,7 +131,7 @@ module LEG(
       .i_cpu_data(cpu_data_out),
       .i_wr_valid(cpu_wr_valid),
       .o_wr_ready(cpu_wr_ready),
-      .i_cpu_bwe(cpu_bwe),
+      .i_wr_width(cpu_wr_width),
       .o_cpu_data(cpu_data_in),
       .o_rd_valid(cpu_rd_valid),
       .i_rd_ready(cpu_rd_ready),

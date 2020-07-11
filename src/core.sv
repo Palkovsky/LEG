@@ -10,10 +10,10 @@ module core (
   output reg [`DATA_WIDTH-1:0] o_data,
   output reg                   o_wr_valid,
   input                        i_wr_ready,
+  output [2:0]                 o_wr_width,
   // Reads
   input [`DATA_WIDTH-1:0]      i_data,
   input                        i_rd_valid,
-  output [`DATA_WIDTH/8-1:0]   o_byte_write_enable,
   output reg                   o_rd_ready,
 
   // Control information
@@ -139,7 +139,7 @@ module core (
       .o_data(exec_data_out),
       .o_wr_valid(exec_wr_valid),
       .i_wr_ready(exec_wr_ready),
-      .o_byte_write_enable(o_byte_write_enable),
+      .o_wr_width(o_write_width),
       .i_data(exec_data_in),
       .i_rd_valid(exec_rd_valid),
       .o_rd_ready(exec_rd_ready),
