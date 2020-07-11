@@ -8,6 +8,7 @@ module bram_tb;
    reg                wr = 0;
    reg [31:0]         addr = 0;
    reg [31:0]         data_in = 0;
+   reg [3:0]          byte_mask = 4'b1111;
    wire [31:0]        data_out;
    wire [11:0]        addr_low12 = addr[11:0];
 
@@ -27,7 +28,7 @@ module bram_tb;
 
    task assert_read
      (
-      input [31:0]            arg_addr,
+      input [31:0] arg_addr,
       input [31:0] arg_expected
      );
       wr = 0;
@@ -55,7 +56,27 @@ module bram_tb;
          for (int i=0; i<32; i++) begin
             assert_read(2*i+1, i+1);
          end
-       end
+      end
+      `TEST_CASE("write bytes seperately") begin
+         byte_mask = 4'b0001;
+         write(0, 'h78);
+         byte_mask = 4'b0010;
+         write(0, 'h5600);
+         byte_mask = 4'b0100;
+         write(0, 'h340000);
+         byte_mask = 4'b1000;
+         write(0, 'h12000000);
+
+         assert_read(0, 32'h12345678);
+      end
+      `TEST_CASE("write halfwords seperately") begin
+         byte_mask = 4'b0011;
+         write(0, 'hCDEF);
+         byte_mask = 4'b1100;
+         write(0, 'h89AB0000);
+
+         assert_read(0, 32'h89ABCDEF);
+      end
    end;
    `WATCHDOG(10ms);
 
@@ -76,6 +97,7 @@ module bram_tb;
     .i_write(wr),
     .i_addr(addr_low12),
     .i_data(data_in),
+    .i_byte_write_enable(byte_mask),
     .o_data(data_out)
    );
 endmodule

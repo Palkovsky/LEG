@@ -14,6 +14,7 @@ module memmap_tb;
    reg [`DATA_WIDTH-1:0] cpu_data_out = 0;
    reg                   cpu_wr_valid = 0;
    wire                  cpu_wr_ready;
+   logic [2:0]           cpu_wr_width = 0;
    // Reading
    wire [`DATA_WIDTH-1:0]  cpu_data_in;
    wire                    cpu_rd_valid;
@@ -42,15 +43,103 @@ module memmap_tb;
       `TEST_SUITE_SETUP begin
          #1;
       end
-      `TEST_CASE("write and read BRAM") begin
-         // vunit: .memmap
-         { cpu_addr, cpu_data_out, cpu_wr_valid } = { 32'h500, 32'h21, 1'b1 };
-         wait (cpu_wr_ready);
+      `TEST_CASE("bram write bytes") begin
+         cpu_addr = 'h10;
+         cpu_data_out = 'hFFFFFF44;
+         cpu_wr_width = 1;
+         cpu_wr_valid = 1;
+         wait(cpu_wr_ready);
          next_cycle();
-         { cpu_wr_valid, cpu_rd_ready } = { 1'b0, 1'b1 };
+
+         cpu_addr = 'h11;
+         cpu_data_out = 'hFFFFFF33;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_addr = 'h12;
+         cpu_data_out = 'hFFFFFF22;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_addr = 'h13;
+         cpu_data_out = 'hFFFFFF11;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_wr_valid = 0;
+         cpu_rd_ready = 1;
+         cpu_addr = 'h10;
          wait (cpu_rd_valid);
          #1;
-         `CHECK_EQUAL(cpu_data_in, 32'h21);
+         `CHECK_EQUAL(cpu_data_in, 32'h11223344);
+      end
+      `TEST_CASE("bram read bytes") begin
+         cpu_addr = 'h10;
+         cpu_data_out = 'h12345678;
+         cpu_wr_width = 4;
+         cpu_wr_valid = 1;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_wr_valid = 0;
+         cpu_rd_ready = 1;
+
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[7:0], 8'h78);
+
+         cpu_addr = 'h11;
+         next_cycle();
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[7:0], 8'h56);
+
+         cpu_addr = 'h12;
+         next_cycle();
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[7:0], 8'h34);
+
+         cpu_addr = 'h13;
+         next_cycle();
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[7:0], 8'h12);
+      end
+      `TEST_CASE("bram write halfwords") begin
+         cpu_addr = 'h10;
+         cpu_data_out = 'hFFFF3344;
+         cpu_wr_width = 2;
+         cpu_wr_valid = 1;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_addr = 'h12;
+         cpu_data_out = 'hFFFF1122;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_wr_valid = 0;
+         cpu_rd_ready = 1;
+         cpu_addr = 'h10;
+         wait (cpu_rd_valid);
+         #1;
+         `CHECK_EQUAL(cpu_data_in, 32'h11223344);
+      end
+      `TEST_CASE("bram read halfwords") begin
+         cpu_addr = 'h10;
+         cpu_data_out = 'h12345678;
+         cpu_wr_width = 4;
+         cpu_wr_valid = 1;
+         wait(cpu_wr_ready);
+         next_cycle();
+
+         cpu_wr_valid = 0;
+         cpu_rd_ready = 1;
+
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[15:0], 16'h5678);
+
+         cpu_addr = 'h12;
+         next_cycle();
+         wait(cpu_rd_valid);
+         `CHECK_EQUAL(cpu_data_in[15:0], 16'h1234);
       end
       `TEST_CASE("write and read MMIO") begin
          // vunit: .memmap
@@ -117,6 +206,7 @@ module memmap_tb;
       .i_cpu_data(cpu_data_out),
       .i_wr_valid(cpu_wr_valid),
       .o_wr_ready(cpu_wr_ready),
+      .i_wr_width(cpu_wr_width),
       .o_cpu_data(cpu_data_in),
       .o_rd_valid(cpu_rd_valid),
       .i_rd_ready(cpu_rd_ready),

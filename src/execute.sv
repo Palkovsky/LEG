@@ -1,8 +1,8 @@
 `include "common.svh"
 
 module execute (
-	input                        i_clk,
-	input                        i_rst,
+  input                        i_clk,
+  input                        i_rst,
 
   // Instruction
   input [31:0]                 i_inst,
@@ -13,6 +13,7 @@ module execute (
   output reg [`DATA_WIDTH-1:0] o_data = 0,
   output reg                   o_wr_valid = 0,
   input                        i_wr_ready,
+  output reg [2:0]             o_wr_width,
   // Reads
   input [`DATA_WIDTH-1:0]      i_data,
   input                        i_rd_valid,
@@ -93,18 +94,22 @@ module execute (
       o_addr <= 0;
       mem_transfer_done <= 0;
 
+      case (w_funct3)
+        `SB:
+          o_wr_width <= 1;
+        `SH:
+          o_wr_width <= 2;
+        `SW:
+          o_wr_width <= 4;
+        default:
+          o_wr_width <= 0;
+      endcase
+
       if (w_opcode == `STORE) begin
          mem_transfer_done <= (o_wr_valid && i_wr_ready);
          o_wr_valid <= 1;
          o_addr <= r_alu_result;
-         case (w_funct3)
-           `SB:
-             o_data <= { 24'h0, X[w_rs2][7:0]  };
-           `SH:
-             o_data <= { 16'h0, X[w_rs2][15:0] };
-           `SW:
-             o_data <= X[w_rs2][31:0];
-         endcase
+         o_data <= X[w_rs2];
       end
       else if (w_opcode == `LOAD) begin
          mem_transfer_done <= (i_rd_valid && o_rd_ready);
@@ -137,9 +142,9 @@ module execute (
       );
 
    always_comb begin
-		  r_alu_operation <= 0;
-		  r_alu_op1 <= 0;
-		  r_alu_op2 <= 0;
+      r_alu_operation <= 0;
+      r_alu_op1 <= 0;
+      r_alu_op2 <= 0;
       r_alu_op3 <= 0;
       o_invalid_inst <= 0;
       case (w_opcode)

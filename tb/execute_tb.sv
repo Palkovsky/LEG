@@ -17,6 +17,7 @@ module execute_tb;
    wire [`DATA_WIDTH-1:0] wr_data;
    wire                   wr_valid;
    reg                    wr_ready;
+   wire [2:0]             wr_width;
 
    reg [31:0]  inst;
 
@@ -28,17 +29,15 @@ module execute_tb;
 
    // Simulate memory.
    always_comb begin
-      case (addr)
-        0: data_sim = 'hAA;
-        1: data_sim = 'hBB;
-        2: data_sim = 'hCC;
-        3: data_sim = 'hDD;
-        4: data_sim = 'h44;
-        5: data_sim = 'h55;
-        15: data_sim = 32'hAABBCCDD;
-        16: data_sim = 32'h44332211;
-        default: data_sim = 0;
+      static logic [`DATA_WIDTH-1:0] temp = 0;
+      case (addr[31:2])
+        0: temp = 32'hDDCCBBAA;
+        1: temp = 32'hFFEE5544;
+        2: temp = 32'hFFEEDDCC;
+        4: temp = 32'h44332211;
+        default: temp = 0;
       endcase
+      data_sim = temp >> (addr[1:0] * 8);
    end
    assign wr_ready = 1;
    always @(posedge clk) begin
@@ -461,14 +460,15 @@ module execute_tb;
       `TEST_CASE("SB") begin
          // vunit: .execute
          // vunit: .sb
-         // SB [x0+0xABC], x15
+         // SB [x0+0x7BC], x15
          SETREG(15, 'h11223344);
          inst <= S(`STORE, `SB, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr_valid, 0);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_width, 1);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 'h44);
+         `CHECK_EQUAL(wr_data, 'h11223344);
          `CHECK_EQUAL(finished, 1);
 
          // SB [x1+0x100], x14
@@ -477,26 +477,28 @@ module execute_tb;
          inst <= S(`STORE, `SB, 1, 'h100, 14);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
+         `CHECK_EQUAL(wr_width, 1);
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(addr, 'h900);
-         `CHECK_EQUAL(wr_data, 'h11);
+         `CHECK_EQUAL(wr_data, 'h44332211);
       end
       `TEST_CASE("SH") begin
          // vunit: .execute
          // vunit: .sh
-         // SH [x0+0xABC], x15
+         // SH [x0+0x7BC], x15
          SETREG(15, 'h11223344);
          inst <= S(`STORE, `SH, 0, 'h7BC, 15);
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_width, 2);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h00003344);
+         `CHECK_EQUAL(wr_data, 32'h11223344);
          next_cycle();
          `CHECK_EQUAL(wr_valid, 1);
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(addr, 'h7BC);
-         `CHECK_EQUAL(wr_data, 32'h00003344);
+         `CHECK_EQUAL(wr_data, 32'h11223344);
          `CHECK_EQUAL(finished, 1);
 
          // Prepare next instruction
@@ -514,11 +516,13 @@ module execute_tb;
          `CHECK_EQUAL(wr_valid, 0);
          #1
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_width, 4);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(wr_valid, 1);
+         `CHECK_EQUAL(wr_width, 4);
          `CHECK_EQUAL(addr, 'h7BC);
          `CHECK_EQUAL(wr_data, 'h11223344);
 
@@ -544,12 +548,12 @@ module execute_tb;
          next_cycle(); // Data goes to BRAM buffer
          `CHECK_EQUAL(rd_ready, 1);
          `CHECK_EQUAL(rd_valid, 1);
-         `CHECK_EQUAL(rd_data, 'h44);
+         `CHECK_EQUAL(rd_data, 'hFFEE5544);
          `CHECK_EQUAL(addr, 4);
          `CHECK_EQUAL(finished, 1);
          `CHECK_EQUAL(execute.X[8], 'h00);
          next_cycle(); // Data goes from BRAM buffer to register
-         `CHECK_EQUAL(rd_data, 32'h44);
+         `CHECK_EQUAL(rd_data, 32'hFFEE5544);
          `CHECK_EQUAL(rd_ready, 1);
          `CHECK_EQUAL(addr, 4);
          `CHECK_EQUAL(finished, 1);
@@ -557,8 +561,44 @@ module execute_tb;
       end
       `TEST_CASE("LB negative") begin
          // vunit: .execute
-         // LB x8, [x0 + 2]
+         // LB x8, [x0 + 0]
          // vunit: .lbneg
+         inst = I(`LOAD, `LB, 8, 0, 0);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 0);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'hFFFFFFAA);
+      end
+      `TEST_CASE("LB offset 1") begin
+         // vunit: .execute
+         // LB x8, [x0 + 1]
+         // vunit: .lb1
+         inst = I(`LOAD, `LB, 8, 0, 1);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 1);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'hFFFFFFBB);
+      end
+      `TEST_CASE("LB offset 2") begin
+         // vunit: .execute
+         // LB x8, [x0 + 2]
+         // vunit: .lb2
          inst = I(`LOAD, `LB, 8, 0, 2);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[8], 'h00);
@@ -573,91 +613,163 @@ module execute_tb;
          next_cycle();
          `CHECK_EQUAL(execute.X[8], 'hFFFFFFCC);
       end
+      `TEST_CASE("LB offset 3") begin
+         // vunit: .execute
+         // LB x8, [x0 + 3]
+         // vunit: .lb3
+         inst = I(`LOAD, `LB, 8, 0, 3);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 3);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'hFFFFFFDD);
+      end
       `TEST_CASE("LBU") begin
          // vunit: .execute
          // vunit: .lbu
-         // LBU x1, [x0 + 1]
-         inst <= I(`LOAD, `LBU, 1, 0, 1);
+         // LBU x1, [x0 + 0]
+         inst <= I(`LOAD, `LBU, 1, 0, 0);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[1], 'h00);
          #1
-         `CHECK_EQUAL(addr, 1);
+         `CHECK_EQUAL(addr, 0);
          next_cycle();
-         `CHECK_EQUAL(addr, 1);
-         `CHECK_EQUAL(rd_data, 'hBB);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(rd_data, 'hDDCCBBAA);
          `CHECK_EQUAL(execute.X[1], 'h00);
          next_cycle();
-         `CHECK_EQUAL(execute.X[1], 'hBB);
+         `CHECK_EQUAL(execute.X[1], 'hAA);
+      end
+      `TEST_CASE("LBU offset 1") begin
+         // vunit: .execute
+         // LBU x8, [x0 + 1]
+         // vunit: .lbu1
+         inst = I(`LOAD, `LBU, 8, 0, 1);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 1);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'h000000BB);
+      end
+      `TEST_CASE("LBU offset 2") begin
+         // vunit: .execute
+         // LBU x8, [x0 + 2]
+         // vunit: .lbu2
+         inst = I(`LOAD, `LBU, 8, 0, 2);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 2);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'h000000CC);
+      end
+      `TEST_CASE("LBU offset 3") begin
+         // vunit: .execute
+         // LBU x8, [x0 + 3]
+         // vunit: .lbu3
+         inst = I(`LOAD, `LBU, 8, 0, 3);
+         `CHECK_EQUAL(addr, 0);
+         `CHECK_EQUAL(execute.X[8], 'h00);
+         #1
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 0);
+         `CHECK_EQUAL(addr, 3);
+         next_cycle();
+         `CHECK_EQUAL(rd_ready, 1);
+         `CHECK_EQUAL(rd_valid, 1);
+         `CHECK_EQUAL(execute.X[8], 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[8], 'h000000DD);
       end
       `TEST_CASE("LH positive") begin
          // vunit: .execute
          // vunit: .lhpos
          // LH x2, [x0 + 4]
-         inst <= I(`LOAD, `LH, 2, 0, 15);
+         inst <= I(`LOAD, `LH, 2, 0, 4);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[2], 'h00);
          #1
-         `CHECK_EQUAL(addr, 15);
+         `CHECK_EQUAL(addr, 4);
          next_cycle();
-         `CHECK_EQUAL(rd_data, 'hAABBCCDD);
+         `CHECK_EQUAL(rd_data, 'hFFEE5544);
          `CHECK_EQUAL(execute.X[2], 32'h0);
          `CHECK_EQUAL(finished, 1);
          next_cycle();
-         `CHECK_EQUAL(execute.X[2], 32'hFFFFCCDD);
+         `CHECK_EQUAL(execute.X[2], 32'h00005544);
          `CHECK_EQUAL(finished, 1);
       end
       `TEST_CASE("LH negative") begin
          // vunit: .execute
          // vunit: .lhneg
-         // LH x2, [x0 + 0]
-         inst <= I(`LOAD, `LH, 2, 0, 16);
+         // LH x2, [x0 + 8]
+         inst <= I(`LOAD, `LH, 2, 0, 8);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[2], 'h00);
          `CHECK_EQUAL(finished, 1);
          #1
-         `CHECK_EQUAL(addr, 16);
+         `CHECK_EQUAL(addr, 8);
          `CHECK_EQUAL(finished, 0);
          next_cycle();
          `CHECK_EQUAL(execute.X[2], 'h0000);
-         `CHECK_EQUAL(rd_data, 32'h44332211);
+         `CHECK_EQUAL(rd_data, 32'hFFEEDDCC);
          `CHECK_EQUAL(finished, 1);
          next_cycle();
-         `CHECK_EQUAL(execute.X[2], 32'h2211);
+         `CHECK_EQUAL(execute.X[2], 32'hFFFFDDCC);
          `CHECK_EQUAL(finished, 1);
       end
       `TEST_CASE("LHU") begin
          // vunit: .execute
          // vunit: .lhu
-         // LHU x1, [x0 + 3]
-         inst <= I(`LOAD, `LHU, 1, 0, 16);
+         // LHU x1, [x0 + 8]
+         inst <= I(`LOAD, `LHU, 1, 0, 8);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[1], 'h00);
          #1
-         `CHECK_EQUAL(addr, 16);
+         `CHECK_EQUAL(addr, 8);
          next_cycle();
          `CHECK_EQUAL(execute.X[1], 0);
          `CHECK_EQUAL(finished, 1);
          next_cycle();
          `CHECK_EQUAL(finished, 1);
-         `CHECK_EQUAL(execute.X[1], 32'h00002211);
+         `CHECK_EQUAL(execute.X[1], 32'h0000DDCC);
       end
       `TEST_CASE("LW") begin
          // vunit: .execute
          // vunit: .lw
          // LW x15, [x0+1]
-         inst <= I(`LOAD, `LW, 15, 0, 15);
+         inst <= I(`LOAD, `LW, 15, 0, 16);
          `CHECK_EQUAL(addr, 0);
          `CHECK_EQUAL(execute.X[15], 'h00);
          #1
-         `CHECK_EQUAL(addr, 15);
+         `CHECK_EQUAL(addr, 16);
          next_cycle();
-         `CHECK_EQUAL(rd_data, 'hAABBCCDD);
+         `CHECK_EQUAL(rd_data, 'h44332211);
          `CHECK_EQUAL(execute.X[15], 'h00000000);
-         `CHECK_EQUAL(addr, 15);
+         `CHECK_EQUAL(addr, 16);
          `CHECK_EQUAL(finished, 1);
          next_cycle();
-         `CHECK_EQUAL(rd_data, 'hAABBCCDD);
-         `CHECK_EQUAL(execute.X[15], 'hAABBCCDD);
+         `CHECK_EQUAL(rd_data, 'h44332211);
+         `CHECK_EQUAL(execute.X[15], 'h44332211);
          `CHECK_EQUAL(finished, 1);
       end
    end;
@@ -670,8 +782,8 @@ module execute_tb;
 
    execute execute
      (
-	    .i_clk(clk),
-	    .i_rst(rst),
+      .i_clk(clk),
+      .i_rst(rst),
 
       .i_inst(inst),
 
@@ -680,6 +792,7 @@ module execute_tb;
       .o_data(wr_data),
       .o_wr_valid(wr_valid),
       .i_wr_ready(wr_ready),
+      .o_wr_width(wr_width),
 
       .i_data(rd_data),
       .i_rd_valid(rd_valid),
