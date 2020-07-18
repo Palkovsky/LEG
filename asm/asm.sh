@@ -23,7 +23,7 @@ LINES=$(echo "$TEXT" |
     tr '[:upper:]' '[:lower:]') 
 
 # Predicates
-isreg() {
+isxreg() {
     [[ "$1" =~ ^x[0-9]+$ ]]
 }
 isdec() { 
@@ -60,6 +60,7 @@ assert() {
     $($1 "$2") || kaput "'${INST[@]}': expected '$2' to match '$1'"
 }
 
+# Instruction element accessor
 a0() {
     echo ${INST[0]}
 }
@@ -81,7 +82,7 @@ LINES=$(echo "$LINES" | while read -r LINE; do
     INST=($LINE)
     case "$(a0)" in
         set) 
-            assert_len 3 ; assert isreg $(a1) ; assert isnum $(a2)
+            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
             echo -e "lui $(a1) 12345\naddi $(a1) $(a1) 678"
             ;;
         *) echo "$LINE" ;;
@@ -115,34 +116,160 @@ done <<< "$LINES"
 LINES=$(echo -e "$NEXT")
 
 # PHASE 3 ============= Code emitting
+r_inst() {
+   # $1 - funct7, $2 - rs2, $3 - rs1, $4 - funct3, $5 - rd, $6 - opcode
+   echo "$(( ($1<<25) + ($2<<20) + ($3<<15) + ($4<<12) + ($5<<7) + $6 ))"
+}
+i_inst() {
+    # $1 - imm12, $2  - rs1, $3 - funct3, $4 - rd, $5 - opcode
+    echo "$(( (($1&0xFFF)<<20) + ($2<<15) + ($3<<12) + ($4<<7) + $5 ))"
+}
+s_inst() {
+    # $1 - imm12, $2 - rs2, $3 - rs1, $4 - funct3, $5 - opcode
+    imm="$(( $1 & 0xFFF ))"
+    imm_1="$(( ($imm>>5) &  0x3F ))" # [11:5]
+    imm_2="$(( $imm & 0x1F ))" # [4:0]
+    echo "$(( ($imm_1<<25) + ($2<<20) + ($3<<15) + ($4<<12) + ($imm_2<<7) + $5 ))"
+}
+b_inst() {
+    # $1 - imm12, $2 - rs2, $3 - rs1, $4 - funct3, $5 - opcode
+    imm="$(( $1 & 0x1FFF ))"
+    imm_1="$(( ($imm>>12) & 1 ))" # [12]
+    imm_2="$(( ($imm>>5) & 0x3F ))" # [10:5]
+    imm_3="$(( ($imm>>1) & 0xF ))" # [4:1]
+    imm_4="$(( ($imm>>11) & 1 ))" # [11]
+    echo "$(( ($imm_1<<31) + ($imm_2<<25) + ($2<<20) + ($3<<15) + ($4<<12) + ($imm_3<<8) + ($imm_4<<7) + $5 ))"
+}
+u_inst() {
+    # $1 - imm20, $2 - rd, $3 - opcode
+    imm="$(( $1 & 0xFFFFF ))"
+    echo "$(( ($imm<<12) + ($2<<7) + $3 ))"
+}
+j_inst() {
+    # $1 - imm20, $2 - rd, $3 - opcode
+    imm="$(( $1 & 0x1FFFFF ))"
+    imm_1="$(( ($imm>>20) & 1 ))" # [20]
+    imm_2="$(( ($imm>>1) & 0x3FF ))"   # [10:1]
+    imm_3="$(( ($imm>>11) & 1))"  # [11]
+    imm_4="$(( ($imm>>12) & 0xFF ))" # [19:12]
+    echo "$(( ($imm_1<<31) + ($imm_2<<21) + ($imm_3<<20) + ($imm_4<<12) + ($2<<7) + $3 ))"
+}
+
+# Helper functions
+hexinst() {
+    printf "%08x" "$1"
+}
+xreg_to_num() {
+    echo "$(echo $1 | cut -c 2-)"
+}
+
+# Opcode lookup
+declare -A OPS=( \
+    ["OPIMM"]=19 ["LUI"]=55 ["AUIPC"]=23 ["OP"]=51 ["JAL"]=111 \
+    ["JALR"]=103 ["BRANCH"]=99 ["LOAD"]=3 ["STORE"]=35 \
+)
+declare -A OPIMM_FUNCT3=( \
+    ["addi"]=0 ["slti"]=2 ["sltiu"]=3 ["xori"]=4 ["ori"]=6 \
+    ["andi"]=7 ["slli"]=1 ["srli"]=5 ["srai"]=5 \
+)
+declare -A OP_FUNCT3=( \
+    ["add"]=0 ["sub"]=0 ["sll"]=1 ["slt"]=2 ["sltu"]=3 \
+    ["xor"]=4 ["srl"]=5 ["sra"]=5 ["or"]=6 ["and"]=7 \
+)
+declare -A LOAD_FUNCT3=( \
+    ["lb"]=0 ["lh"]=1 ["lw"]=2 ["lbu"]=3 ["lhu"]=4 \
+)
+declare -A STORE_FUNCT3=( \
+    ["sb"]=0 ["sh"]=1 ["sw"]=2 \
+)
+declare -A BRANCH_FUNCT3=( \
+    ["beq"]=0 ["bne"]=1 ["blt"]=4 ["bge"]=5 ["bltu"]=6 ["bgeu"]=7 \
+)
+
 ORG=0
 while read -r LINE; do
     INST=($LINE)
     NEXT_ORG=$(( $ORG+4 ))
     
-    echo "$ORG, $LINE"
+    #echo "$ORG, $LINE"
     case "$(a0)" in
-        addi) 
-            # ADDI xA, xB, imm12
-            assert_len 4 ; assert isreg $(a1) ; assert isreg $(a2) ; assert isnum $(a3)
-            echo "JES ADDI" ;;
+        addi | slti | sltiu | xori | ori | andi | slli | srli) 
+            # _ xA, xB, imm12
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
+            [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && imm=$(( $imm & 0x1F ))
+            code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["$(a0)"]} $r_dest ${OPS["OPIMM"]}))
+            ;;
+        srai)
+            # srai xA, xB, imm12
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
+            imm=$(( ($imm & 0x1F) + (1<<10) ))
+            code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["srai"]} $r_dest ${OPS["OPIMM"]}))
+            ;;
         lui) 
             # LUI xA, imm20
-            assert_len 3 ; assert isreg $(a1) ; assert isnum $(a2)
-            echo "JES LUI" ;;
-        lb)
-            # LB xA, OFF(xB)
-            assert_len 4 ; assert isreg $(a1) ; assert isnum $(a2) ; assert isreg $(a3)
-            echo "JES LB" ;;
+            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
+            r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
+            code=$(hexinst $(u_inst $imm $r_dest ${OPS["LUI"]}))
+            ;;
+        auipc)
+            # AUIPC xA, imm20
+            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
+            r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
+            code=$(hexinst $(u_inst $imm $r_dest ${OPS["AUIPC"]}))
+            ;;
+        add | slt | sltu | and | or | xor | sll | srl)
+            # _ xDEST, xA, xB 
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_a="$(xreg_to_num $(a2))" ; r_b="$(xreg_to_num $(a3))"
+            code=$(hexinst $(r_inst 0 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
+            ;;
+        sub | sra)
+            # _ xDEST, xA, xB 
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_a="$(xreg_to_num $(a2))" ; r_b="$(xreg_to_num $(a3))"
+            code=$(hexinst $(r_inst 0x20 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
+            ;;
+        lb | lh | lw | lbu | lhu)
+            # {LB|LH|LW|LBU|LHU} xTARGET, OFFSET(xBASE)
+            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
+            code=$(hexinst $(i_inst $offset $r_base ${LOAD_FUNCT3["$(a0)"]} $r_dest ${OPS["LOAD"]}))
+            ;;
+        sb | sh | sw)
+            # {SB|SH|SW} xSRC, OFFSET(xBASE) 
+            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3)
+            r_src="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
+            code=$(hexinst $(s_inst $offset $r_src $r_base ${STORE_FUNCT3["$(a0)"]} ${OPS["STORE"]}))
+            ;;
         jal)
             # JAL xA, label
-            assert_len 3 ; assert isreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
-            ADDR=${LABELS[$(a2)]}
-            echo "JAL $(a2) --> $ADDR"
+            assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
+            r_dest="$(xreg_to_num $(a1))" ; addr="${LABELS[$(a2)]}"
+            offset=$(( $addr-$ORG ))
+            code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
+            ;;
+        jalr)
+            # JALR xA, label
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))" ; offset="$(a3)"
+            code=$(hexinst $(i_inst $offset $r_base 0 $r_dest ${OPS["JALR"]}))
+            ;;
+        beq | bne | blt | bltu | bge | bgeu)
+            # BRANCH xA, xB, label
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert islabel $(a3) ; assert_valid_label $(a3)
+            r_a="$(xreg_to_num $(a1))" ; r_b="$(xreg_to_num $(a2))" ; addr="${LABELS[$(a3)]}"
+            offset=$(( $addr-$ORG ))
+            code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["$(a0)"]} ${OPS["BRANCH"]}))
             ;;
         org) 
-            NEXT_ORG=$(asnum $(a1)) ;;
+            NEXT_ORG=$(asnum $(a1)) 
+            ;;
+        *)
+            kaput "Invalid instruction '${INST[@]}'"
+            ;;
     esac
-
+    echo "mem[$ORG]='h$code"
     ORG=$NEXT_ORG
 done <<< "$LINES"
