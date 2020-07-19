@@ -101,7 +101,7 @@ ORG=0 ; NEXT="" ; declare -A LABELS
 while read -r LINE; do
     INST=($LINE)
 
-    EMIT=$LINE
+    EMIT="$LINE\n"
     NEXT_ORG=$(( $ORG+4 ))
 
     case "$(a0)" in
@@ -114,9 +114,19 @@ while read -r LINE; do
             assert_len 2 ; assert isnum $(a1)
             NEXT_ORG=$(asnum $(a1))
             ;;
+        dat)
+            # Emit multiple dw instructions
+            words=("${INST[@]:1}") ; count="${#INST[@]}" ; EMIT=""
+            for word in "${words[@]}"
+            do
+                assert isnum "$word" ; assert_range 0 0xFFFFFFFF "$word"
+                EMIT+="dw $word\n"
+            done
+            NEXT_ORG="$(( $ORG + $count ))"
+            ;;
     esac
 
-    [ -z "$EMIT" ] || NEXT+="${EMIT}\n"
+    [ -z "$EMIT" ] || NEXT+="${EMIT}"
     ORG=$NEXT_ORG
 done <<< "$LINES"
 LINES=$(echo -e "$NEXT")
@@ -272,6 +282,10 @@ while read -r LINE; do
             ;;
         org) 
             NEXT_ORG=$(asnum $(a1)) 
+            ;;
+        dw)
+            assert_len 2 ; assert isnum $(a1) ; assert_range 0 0xFFFFFFFF $(a1)
+            code=$(hexinst $(a1))
             ;;
         *)
             kaput "Invalid instruction '${INST[@]}'"
