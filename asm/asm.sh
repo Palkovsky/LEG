@@ -54,6 +54,12 @@ assert_valid_label() {
     [ -z "${LABELS[$1]}" ] && kaput "${INST[@]}: unknown label '$1'"
 }
 
+assert_range() {
+    # $1 - min, $2 - max, $3 - test value
+    l=$(( "$1" )) ; r=$(( "$2" )) val=$(( "$3" ))
+    [ "$val" -ge "$l" -a "$val" -le "$r" ] || kaput "${INST[@]}: '$val' not in valid range of [$l; $r]"
+}
+
 # Checks if arg fufills the predicate
 # $1 - predicate, $2 - text
 assert() {
@@ -196,26 +202,27 @@ while read -r LINE; do
         addi | slti | sltiu | xori | ori | andi | slli | srli) 
             # _ xA, xB, imm12
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
+            [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && assert_range 0 31 $(a3) || assert_range -2048 2047 $(a3)
             r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
             [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && imm=$(( $imm & 0x1F ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["$(a0)"]} $r_dest ${OPS["OPIMM"]}))
             ;;
         srai)
             # srai xA, xB, imm12
-            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
+            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3) ; assert_range 0 31 $(a3)
             r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
             imm=$(( ($imm & 0x1F) + (1<<10) ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["srai"]} $r_dest ${OPS["OPIMM"]}))
             ;;
         lui) 
             # LUI xA, imm20
-            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
+            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
             r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["LUI"]}))
             ;;
         auipc)
             # AUIPC xA, imm20
-            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
+            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
             r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["AUIPC"]}))
             ;;
@@ -233,13 +240,13 @@ while read -r LINE; do
             ;;
         lb | lh | lw | lbu | lhu)
             # {LB|LH|LW|LBU|LHU} xTARGET, OFFSET(xBASE)
-            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3)
+            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3) ; assert_range -2048 2047 $(a2)
             r_dest="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
             code=$(hexinst $(i_inst $offset $r_base ${LOAD_FUNCT3["$(a0)"]} $r_dest ${OPS["LOAD"]}))
             ;;
         sb | sh | sw)
             # {SB|SH|SW} xSRC, OFFSET(xBASE) 
-            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3)
+            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3) ; assert_range -2048 2047 $(a2)
             r_src="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
             code=$(hexinst $(s_inst $offset $r_src $r_base ${STORE_FUNCT3["$(a0)"]} ${OPS["STORE"]}))
             ;;
