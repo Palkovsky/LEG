@@ -1,5 +1,4 @@
 #!/bin/bash
-
 trap "exit 1" 10
 PROC="$$"
 kaput() {
@@ -14,6 +13,8 @@ kaput() {
 LINES=$(echo "$TEXT" |
     # Remove comments, starting and trailing spaces, empty lines, merge multiple spaces into one
     sed 's/\s*#.*//; s/^\s*//; s/\s*$//; /^$/d; s/ \+/ /g' |
+    # Replace '+' with ' + '
+    sed 's/+/ + /' | 
     # Make separators uniform
     awk -F " |,|\\\(|\\\)" 'BEGIN {OFS = " "} { $1 = $1; print }' |
     # Eliminate trailng and duplicated separators
@@ -50,6 +51,11 @@ assert_len() {
     [ "$LEN" -eq "$1" ] || kaput "'${INST[@]}': expected to have $1 elements, but it has $LEN"
 }
 
+assert_gte() {
+    LEN="${#INST[@]}"
+    [ "$LEN" -ge "$1" ] || kaput "'${INST[@]}': expected to at least $1 elements, but it has $LEN"
+}
+
 assert_valid_label() {
     [ -z "${LABELS[$1]}" ] && kaput "${INST[@]}: unknown label '$1'"
 }
@@ -82,6 +88,9 @@ a3() {
 a4() {
     echo ${INST[4]}
 }
+a_rest() {
+    echo "${INST[@]:$1}"
+}
 
 # PHASE 1 ============= Macroinstructions that expand into multiple basic instructions.
 LINES=$(echo "$LINES" | while read -r LINE; do
@@ -94,7 +103,6 @@ LINES=$(echo "$LINES" | while read -r LINE; do
         *) echo "$LINE" ;;
     esac
 done)
-
 
 # PHASE 2 ============= Calculating labels positions
 ORG=0 ; NEXT="" ; declare -A LABELS
@@ -178,6 +186,20 @@ hexinst() {
 xreg_to_num() {
     echo "$(echo $1 | cut -c 2-)"
 }
+to_param_list () {
+    declare -n outlist=$1
+    declare -n inhash=$2
+    for param in "${!inhash[@]}"; do
+        outlist+=( "--$param ${inhash[$param]}" )
+    done
+}
+imm_rest() {
+    imm="$(a_rest $1)"
+    to_param_list list LABELS
+    out="$(./imm.sh ${list[@]} ${imm[@]})"
+    [ $? -ne 0 ] && kaput "${INST[@]}: Unable to parse immediate '$imm'. Error: $out."
+    echo "$out"
+}
 
 # Opcode lookup
 declare -A OPS=( \
@@ -226,7 +248,7 @@ while read -r LINE; do
             ;;
         lui) 
             # LUI xA, imm20
-            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
+            assert_gte 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
             r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["LUI"]}))
             ;;

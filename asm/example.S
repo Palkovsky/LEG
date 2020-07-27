@@ -1,7 +1,7 @@
 # This program tests BRAM and MMIO transfers
 ADDI x14, x0, -1   # 0xFFFFFFFF - UART TX MMIO
 # Set x1=0x11223344
-LUI x1, 0x49505
+LUI x1, 0x49505+label
 ADDI x1, x1, 0x152
 # Store x1 under 0x00000100
 ORG 0x100
@@ -25,4 +25,5 @@ SRAI x2, x2, 8
 # Write 4th byte to UART
 SB x2, 0(x14)
 JAL x0, wait_free_buff
-SET x5, 22
+
+DAT 0xFFFFFFFF, 2, 3, 4, 1
