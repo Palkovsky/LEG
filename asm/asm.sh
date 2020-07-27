@@ -291,6 +291,6 @@ while read -r LINE; do
             kaput "Invalid instruction '${INST[@]}'"
             ;;
     esac
-    echo "mem[$ORG]='h$code"
+    echo "mem[$(($ORG / 4))] = 'h$code;"
     ORG=$NEXT_ORG
 done <<< "$LINES"
