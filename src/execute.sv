@@ -61,10 +61,18 @@ module execute (
    reg [3:0]                 r_alu_operation;
    reg [31:0]                r_alu_result;
 
+   // Vector transfer
+   logic [5:0]               r_vec_transfered = 0;
+   logic [7:0][31:0]         r_vec_tmp = 0;
+
+   logic                     w_vram_we;
+   logic [4:0]               w_vram_waddr;
+   logic [15:0][15:0]        w_vram_wdata;
+
    /*
     * ========= MEMORY ACCESS INSTRUCTIONS
     */
-   reg                       mem_transfer_done;
+   reg                        mem_transfer_done;
 
    task LOAD_SEQ();
       if (o_rd_ready && i_rd_valid) begin
@@ -83,8 +91,32 @@ module execute (
       end
    endtask
 
+   task VEC_LOAD_SEQ();
+      if (o_rd_ready && i_rd_valid && r_vec_transfered < 8) begin
+         r_vec_tmp[r_vec_transfered] <= i_data;
+         r_vec_transfered <= r_vec_transfered + 1;
+      end
+      if (r_vec_transfered == 8) begin
+         r_vec_transfered <= 9;
+      end
+      if (r_vec_transfered == 9) begin
+         r_vec_transfered <= 0;
+      end
+   endtask
+
    task STORE_SEQ();
    endtask
+
+   always_comb begin
+      w_vram_we <= 0;
+      w_vram_waddr <= w_rd;
+      w_vram_wdata <= r_vec_tmp;
+      if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_LV) begin
+         if (r_vec_transfered >= 8) begin
+            w_vram_we <= 1;
+         end
+      end
+   end
 
    // Drive memory interface for STORE and LOAD.
    always_comb begin
@@ -116,6 +148,10 @@ module execute (
          o_rd_ready <= 1;
          o_addr <= r_alu_result;
       end
+      else if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_LV) begin
+         o_rd_ready <= 1;
+         o_addr <= r_alu_result;
+      end
    end
 
    /*
@@ -125,6 +161,8 @@ module execute (
    always_comb begin
       if (w_opcode == `LOAD || w_opcode == `STORE)
         r_last_cycle <= mem_transfer_done;
+      else if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_LV)
+        r_last_cycle <= r_vec_transfered == `VEC_DIM / 2 + 1;
       else
         r_last_cycle <= (w_next_cycle >= 1);
    end
@@ -152,6 +190,16 @@ module execute (
            r_alu_operation <= `ALU_ADD;
            r_alu_op1 <= X[w_rs1];
            r_alu_op2 <= w_I;
+        end
+        `OP_VEC_I: begin
+           case (w_funct3)
+             `VECI_LV: begin
+                r_alu_operation <= `ALU_ADD;
+                r_alu_op1 <= X[w_rs1];
+                r_alu_op2 <= w_I;
+                r_alu_op3 <= r_vec_transfered * 4;
+             end
+           endcase
         end
         `STORE: begin
            r_alu_operation <= `ALU_ADD;
@@ -340,8 +388,19 @@ module execute (
            `JALR:   JALR_SEQ();
            `BRANCH: BRANCH_SEQ();
            // Custom opcodes
+           `OP_VEC_I: VEC_LOAD_SEQ();
            `NOP: ;
          endcase
       end
    end
+
+   vec_ram #(
+     .VEC_SIZE(16),
+     .VEC_INDEX_WIDTH(5)
+   ) vec_ram (
+     .i_clk(i_clk),
+     .i_write_enable(w_vram_we),
+     .i_write_addr(w_vram_waddr),
+     .i_write_data(w_vram_wdata)
+   );
 endmodule

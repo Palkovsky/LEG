@@ -15,7 +15,7 @@ module bram #(
      RAM_SIZE=1<<ADDR_WIDTH;
    localparam WORD_BYTES = DATA_WIDTH / 8;
 
-   reg [WORD_BYTES-1:0][7:0]  mem[0:RAM_SIZE-1];
+   reg [WORD_BYTES-1:0][7:0]    mem[0:RAM_SIZE-1];
 
 	initial begin
      /*
@@ -91,7 +91,6 @@ module bram #(
      * 15: SRAI x1, x1, 8
      * 16: SB x1, 0(x15)
      * 17: JAL store
-     */
      mem[00] = 32'hfff00793;
 		 mem[01] = 32'h10000713;
      mem[02] = 32'h343330b7;
@@ -110,6 +109,7 @@ module bram #(
      mem[15] = 32'h4080d093;
      mem[16] = 32'h00178023;
      mem[17] = 32'hfc5ff0ef;
+     */
 
 	  /*
      * # Echo with I/O wait.
@@ -149,6 +149,27 @@ module bram #(
      mem[05] = 32'hfe0088e3;
 	   mem[06] = 32'hff5ff06f;
       */
+     
+     /*
+      # Vector load test
+      0: addi x1, x0, 16
+      1: lv v0, x1, 16
+      2: jal x0, 2
+      32: dh 0000h 1111h 2222h 3333h 4444h 5555h ...
+      */
+     mem[0] = 'h01000093;
+     mem[1] = 'h0100900b;
+     mem[2] = 'h0100908b;
+     mem[3] = 'h0000006f;
+     mem[8] = 'h11110000;
+     mem[9] = 'h33332222;
+     mem[10] = 'h55554444;
+     mem[11] = 'h77776666;
+     mem[12] = 'h99998888;
+     mem[13] = 'hBBBBAAAA;
+     mem[14] = 'hDDDDCCCC;
+     mem[15] = 'hFFFFEEEE;
+
 	end
 
   always @(posedge i_clk) begin

@@ -5,6 +5,7 @@
  `define DATA_WIDTH 32
  `define BRAM_WIDTH 12
  `define TX_FIFO_DEPTH 4
+ `define VEC_DIM 16
 
  // OPCODE definitions
  `define LUI      7'b0110111
@@ -19,6 +20,7 @@
  `define OP_REG   7'b0110011
  `define OP_IMM   7'b0010011
  // Custom OPCODEs
+ `define OP_VEC_I 7'b0001011
  `define NOP      7'b0000000
 
  // BRANCH types
@@ -89,6 +91,9 @@
  `define ALU_SLL  4'h8
  `define ALU_SRL  4'h9
  `define ALU_SRA  4'hA
+
+// Vector immediate instructions
+ `define VECI_LV 3'h1 // Load vector
 
 // UART
  `define UART_BAUD_RATE 115200
