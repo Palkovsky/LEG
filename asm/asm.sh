@@ -9,14 +9,14 @@ kaput() {
 # Read either from file or stdin
 [ "$#" -eq 1 ] && TEXT=$(cat $1) || TEXT=$(cat)
 
-# Generate LINEens
+# Generate LINEes
 LINES=$(echo "$TEXT" |
     # Remove comments, starting and trailing spaces, empty lines, merge multiple spaces into one
     sed 's/\s*#.*//; s/^\s*//; s/\s*$//; /^$/d; s/ \+/ /g' |
-    # Replace '+' with ' + '
-    sed 's/+/ + /' | 
+    # Replace '+' with ' + ', etc.
+    sed 's/+/ + /; s/-/ - /' | 
     # Make separators uniform
-    awk -F " |,|\\\(|\\\)" 'BEGIN {OFS = " "} { $1 = $1; print }' |
+    awk -F " |," 'BEGIN {OFS = " "} { $1 = $1; print }' |
     # Eliminate trailng and duplicated separators
     sed 's/ \+/ /g; s/ *$//' |
     # Detect labels
@@ -194,9 +194,9 @@ to_param_list () {
     done
 }
 imm_rest() {
-    imm="$(a_rest $1)"
+    imm=$(a_rest $1)
     to_param_list list LABELS
-    out="$(./imm.sh ${list[@]} ${imm[@]})"
+    out=$(./imm.sh ${list[@]} ${imm[@]})
     [ $? -ne 0 ] && kaput "${INST[@]}: Unable to parse immediate '$imm'. Error: $out."
     echo "$out"
 }
@@ -233,73 +233,81 @@ while read -r LINE; do
     case "$(a0)" in
         addi | slti | sltiu | xori | ori | andi | slli | srli) 
             # _ xA, xB, imm12
-            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
-            [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && assert_range 0 31 $(a3) || assert_range -2048 2047 $(a3)
-            r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            imm=$(imm_rest 3)
+            [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && assert_range 0 31 $imm || assert_range -2048 2047 $imm
+            r_dest=$(xreg_to_num $(a1)) ; r_src=$(xreg_to_num $(a2))
             [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && imm=$(( $imm & 0x1F ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["$(a0)"]} $r_dest ${OPS["OPIMM"]}))
             ;;
         srai)
             # srai xA, xB, imm12
-            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3) ; assert_range 0 31 $(a3)
-            r_dest="$(xreg_to_num $(a1))" ; r_src="$(xreg_to_num $(a2))" ; imm="$(a3)"
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2) 
+            imm=$(imm_rest 3) ; assert_range 0 31 $imm
+            r_dest=$(xreg_to_num $(a1)) ; r_src=$(xreg_to_num $(a2))
             imm=$(( ($imm & 0x1F) + (1<<10) ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["srai"]} $r_dest ${OPS["OPIMM"]}))
             ;;
         lui) 
             # LUI xA, imm20
-            assert_gte 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
-            r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
+            assert_gte 3 ; assert isxreg $(a1)
+            imm=$(imm_rest 2) ; assert_range 0 0xFFFFF $imm
+            r_dest=$(xreg_to_num $(a1))
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["LUI"]}))
             ;;
         auipc)
             # AUIPC xA, imm20
-            assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert_range 0 0xFFFFF $(a2)
-            r_dest="$(xreg_to_num $(a1))" ; imm="$(a2)"
+            assert_gte 3 ; assert isxreg $(a1)
+            imm=$(imm_rest 2) ; assert_range 0 0xFFFFF $imm
+            r_dest="$(xreg_to_num $(a1))"
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["AUIPC"]}))
             ;;
         add | slt | sltu | and | or | xor | sll | srl)
             # _ xDEST, xA, xB 
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
-            r_dest="$(xreg_to_num $(a1))" ; r_a="$(xreg_to_num $(a2))" ; r_b="$(xreg_to_num $(a3))"
+            r_dest=$(xreg_to_num $(a1)) ; r_a=$(xreg_to_num $(a2)) ; r_b=$(xreg_to_num $(a3))
             code=$(hexinst $(r_inst 0 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
             ;;
         sub | sra)
             # _ xDEST, xA, xB 
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
-            r_dest="$(xreg_to_num $(a1))" ; r_a="$(xreg_to_num $(a2))" ; r_b="$(xreg_to_num $(a3))"
+            r_dest=$(xreg_to_num $(a1)) ; r_a=$(xreg_to_num $(a2)) ; r_b=$(xreg_to_num $(a3))
             code=$(hexinst $(r_inst 0x20 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
             ;;
         lb | lh | lw | lbu | lhu)
-            # {LB|LH|LW|LBU|LHU} xTARGET, OFFSET(xBASE)
-            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3) ; assert_range -2048 2047 $(a2)
-            r_dest="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
+            # {LB|LH|LW|LBU|LHU} xTARGET, xBASE, OFFSET
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+            r_dest=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
             code=$(hexinst $(i_inst $offset $r_base ${LOAD_FUNCT3["$(a0)"]} $r_dest ${OPS["LOAD"]}))
             ;;
         sb | sh | sw)
-            # {SB|SH|SW} xSRC, OFFSET(xBASE) 
-            assert_len 4 ; assert isxreg $(a1) ; assert isnum $(a2) ; assert isxreg $(a3) ; assert_range -2048 2047 $(a2)
-            r_src="$(xreg_to_num $(a1))" ; offset="$(a2)" ; r_base="$(xreg_to_num $(a3))"
+            # {SB|SH|SW} xSRC, xBASE, OFFSET
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+            r_src=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
             code=$(hexinst $(s_inst $offset $r_src $r_base ${STORE_FUNCT3["$(a0)"]} ${OPS["STORE"]}))
             ;;
         jal)
             # JAL xA, label
             assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
-            r_dest="$(xreg_to_num $(a1))" ; addr="${LABELS[$(a2)]}"
-            offset=$(( $addr-$ORG ))
+            r_dest=$(xreg_to_num $(a1)) ; addr=${LABELS[$(a2)]}
+            # TODO: Might wanna check if offset is multiple of two
+            offset=$(( $addr-$ORG )) ; assert_range -1048576 1048575 $offset
             code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
             ;;
         jalr)
-            # JALR xA, label
-            assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3)
-            r_dest="$(xreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))" ; offset="$(a3)"
+            # JALR xA, xB, imm12
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+            r_dest=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
             code=$(hexinst $(i_inst $offset $r_base 0 $r_dest ${OPS["JALR"]}))
             ;;
         beq | bne | blt | bltu | bge | bgeu)
             # BRANCH xA, xB, label
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert islabel $(a3) ; assert_valid_label $(a3)
-            r_a="$(xreg_to_num $(a1))" ; r_b="$(xreg_to_num $(a2))" ; addr="${LABELS[$(a3)]}"
-            offset=$(( $addr-$ORG ))
+            r_a=$(xreg_to_num $(a1)) ; r_b=$(xreg_to_num $(a2)) ; addr=${LABELS[$(a3)]}
+            offset=$(( $addr-$ORG )) ; assert_range -4096 4095 $offset
             code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["$(a0)"]} ${OPS["BRANCH"]}))
             ;;
         org) 
