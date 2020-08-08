@@ -27,6 +27,9 @@ LINES=$(echo "$TEXT" |
 isxreg() {
     [[ "$1" =~ ^x[0-9]+$ ]]
 }
+isvreg() {
+    [[ "$1" =~ ^v[0-9]+$ ]]
+}
 isdec() { 
     [[ "$1" =~ ^-?[0-9]+$ ]]  
 }
@@ -186,6 +189,9 @@ hexinst() {
 xreg_to_num() {
     echo "$(echo $1 | cut -c 2-)"
 }
+vreg_to_num() {
+    echo "$(echo $1 | cut -c 2-)"
+}
 to_param_list () {
     declare -n outlist=$1
     declare -n inhash=$2
@@ -316,6 +322,11 @@ while read -r LINE; do
         dw)
             assert_len 2 ; assert isnum $(a1) ; assert_range 0 0xFFFFFFFF $(a1)
             code=$(hexinst $(a1))
+            ;;
+        lv)
+            assert_len 4 ; assert isvreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3) ; assert_range -2048 2047 $(a3)
+            r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))" ; offset="$(a3)"
+            code=$(hexinst $(i_inst $offset $r_base 1 $r_dest 11))
             ;;
         *)
             kaput "Invalid instruction '${INST[@]}'"
