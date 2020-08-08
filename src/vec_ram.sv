@@ -2,15 +2,19 @@ module vec_ram #(
   VEC_SIZE,
   VEC_INDEX_WIDTH
 ) (
+  // Control signals
   input logic                       i_clk,
   input logic                       i_rst,
 
+  // Read signals B
   input logic [VEC_INDEX_WIDTH-1:0] i_read_addr_a,
   output logic [15:0][VEC_SIZE-1:0] o_read_data_a,
 
+  // Read signals A
   input logic [VEC_INDEX_WIDTH-1:0] i_read_addr_b,
   output logic [15:0][VEC_SIZE-1:0] o_read_data_b,
 
+  // Write signals
   input logic                       i_write_enable,
   input logic [VEC_INDEX_WIDTH-1:0] i_write_addr,
   input logic [15:0][VEC_SIZE-1:0]  i_write_data
@@ -22,7 +26,7 @@ module vec_ram #(
    logic [VEC_INDEX_WIDTH:0]        r_addr_b;
 
    initial begin
-      for(int i = 0; i < 1 << VEC_INDEX_WIDTH; i++) begin
+      for(int i = 0; i < 1<<VEC_INDEX_WIDTH-1; i++) begin
          mem[i] <= 0;
       end
    end
@@ -40,6 +44,4 @@ module vec_ram #(
          mem[i_write_addr] <= i_write_data;
       end
    end
-
-
 endmodule

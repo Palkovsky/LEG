@@ -69,6 +69,16 @@ module execute (
    logic [4:0]               w_vram_waddr;
    logic [15:0][15:0]        w_vram_wdata;
 
+   logic [4:0]               w_vram_raddr1;
+   logic [15:0][15:0]        w_vram_rdata1;
+   logic [7:0][31:0]         w_vram_rdata1_32;
+
+   logic [4:0]               w_vram_raddr2;
+   logic [15:0][15:0]        w_vram_rdata2;
+   logic [7:0][31:0]         w_vram_rdata2_32;
+
+   assign w_vram_rdata1_32 = w_vram_rdata1;
+   assign w_vram_rdata2_32 = w_vram_rdata2;
    /*
     * ========= MEMORY ACCESS INSTRUCTIONS
     */
@@ -91,30 +101,52 @@ module execute (
       end
    endtask
 
+   task STORE_SEQ();
+   endtask
+
+   task VEC_SEQ();
+      if (w_funct3 == `VECI_LV)
+         VEC_LOAD_SEQ();
+      else if (w_funct3 == `VECI_SV)
+         VEC_STORE_SEQ();
+   endtask
+
    task VEC_LOAD_SEQ();
       if (o_rd_ready && i_rd_valid && r_vec_transfered < 8) begin
          r_vec_tmp[r_vec_transfered] <= i_data;
          r_vec_transfered <= r_vec_transfered + 1;
       end
-      if (r_vec_transfered == 8) begin
+      if (r_vec_transfered == 8)
          r_vec_transfered <= 9;
-      end
-      if (r_vec_transfered == 9) begin
+      if (r_vec_transfered == 9) 
          r_vec_transfered <= 0;
-      end
    endtask
 
-   task STORE_SEQ();
+   task VEC_STORE_SEQ();
+      if (o_wr_valid && i_wr_ready && r_vec_transfered < 8)
+         r_vec_transfered <= r_vec_transfered + 1;
+
+      if (r_vec_transfered >= 8)
+         r_vec_transfered <= 0;
    endtask
 
    always_comb begin
+      // Write signals
       w_vram_we <= 0;
       w_vram_waddr <= w_rd;
       w_vram_wdata <= r_vec_tmp;
-      if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_LV) begin
-         if (r_vec_transfered >= 8) begin
-            w_vram_we <= 1;
-         end
+      
+      // Read signals
+      w_vram_raddr1 <= w_rs1;
+      w_vram_raddr2 <= w_rs2;
+
+      if (w_opcode == `OP_VEC_I) begin
+         case (w_funct3)
+            `VECI_LV:
+               w_vram_we <= (r_vec_transfered >= 8);
+            `VECI_SV:
+               w_vram_raddr1 <= w_rd;
+         endcase
       end
    end
 
@@ -152,6 +184,11 @@ module execute (
          o_rd_ready <= 1;
          o_addr <= r_alu_result;
       end
+      else if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_SV) begin
+         o_wr_valid <= 1;
+         o_addr <= r_alu_result;
+         o_data <= w_vram_rdata1_32[r_vec_transfered];
+      end
    end
 
    /*
@@ -162,7 +199,9 @@ module execute (
       if (w_opcode == `LOAD || w_opcode == `STORE)
         r_last_cycle <= mem_transfer_done;
       else if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_LV)
-        r_last_cycle <= r_vec_transfered == `VEC_DIM / 2 + 1;
+         r_last_cycle <= r_vec_transfered == `VEC_DIM / 2 + 1;
+      else if (w_opcode == `OP_VEC_I && w_funct3 == `VECI_SV)
+         r_last_cycle <= r_vec_transfered == `VEC_DIM / 2;
       else
         r_last_cycle <= (w_next_cycle >= 1);
    end
@@ -188,19 +227,19 @@ module execute (
       case (w_opcode)
         `LOAD: begin
            r_alu_operation <= `ALU_ADD;
-           r_alu_op1 <= X[w_rs1];
-           r_alu_op2 <= w_I;
+           r_alu_op1 <= X[w_rs1]; // base address
+           r_alu_op2 <= w_I;      // imm offset
         end
         `OP_VEC_I: begin
            case (w_funct3)
-             `VECI_LV: begin
+             `VECI_LV, `VECI_SV: begin
                 r_alu_operation <= `ALU_ADD;
-                r_alu_op1 <= X[w_rs1];
-                r_alu_op2 <= w_I;
+                r_alu_op1 <= X[w_rs1]; // base address
+                r_alu_op2 <= w_I;      // imm offset
                 r_alu_op3 <= r_vec_transfered * 4;
              end
-           endcase
-        end
+            endcase
+         end
         `STORE: begin
            r_alu_operation <= `ALU_ADD;
            r_alu_op1 <= X[w_rs1];
@@ -388,7 +427,7 @@ module execute (
            `JALR:   JALR_SEQ();
            `BRANCH: BRANCH_SEQ();
            // Custom opcodes
-           `OP_VEC_I: VEC_LOAD_SEQ();
+           `OP_VEC_I: VEC_SEQ();
            `NOP: ;
          endcase
       end
@@ -399,6 +438,14 @@ module execute (
      .VEC_INDEX_WIDTH(5)
    ) vec_ram (
      .i_clk(i_clk),
+     .i_rst(i_rst),
+
+     .i_read_addr_a(w_vram_raddr1),
+     .o_read_data_a(w_vram_rdata1),
+
+     .i_read_addr_b(w_vram_raddr2),
+     .o_read_data_b(w_vram_rdata2),
+
      .i_write_enable(w_vram_we),
      .i_write_addr(w_vram_waddr),
      .i_write_data(w_vram_wdata)

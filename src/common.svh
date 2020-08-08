@@ -94,6 +94,7 @@
 
 // Vector immediate instructions
  `define VECI_LV 3'h1 // Load vector
+ `define VECI_SV 3'h2 // Store vector
 
 // UART
  `define UART_BAUD_RATE 115200

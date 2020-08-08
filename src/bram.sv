@@ -153,14 +153,19 @@ module bram #(
      /*
       # Vector load test
       0: addi x1, x0, 16
-      1: lv v0, x1, 16
-      2: jal x0, 2
+      4: lv v0, x1, 16
+      8: sv v0, x1, 32
+      12: lv v1, x1, 16
+      16: jal x0, 2
       32: dh 0000h 1111h 2222h 3333h 4444h 5555h ...
       */
      mem[0] = 'h01000093;
-     mem[1] = 'h0100900b;
-     mem[2] = 'h0100908b;
-     mem[3] = 'h0000006f;
+     mem[1] = 'h0100900B;
+     mem[2] = 'h0200A00B;
+     mem[3] = 'h0100908B;
+     // Position-indepenednt loop
+     mem[4] = 'h0000006f;
+     // Data
      mem[8] = 'h11110000;
      mem[9] = 'h33332222;
      mem[10] = 'h55554444;
