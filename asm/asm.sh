@@ -211,6 +211,7 @@ imm_rest() {
 declare -A OPS=( \
     ["OPIMM"]=19 ["LUI"]=55 ["AUIPC"]=23 ["OP"]=51 ["JAL"]=111 \
     ["JALR"]=103 ["BRANCH"]=99 ["LOAD"]=3 ["STORE"]=35 \
+    ["VEC_I"]=11 ["NOP"]=0
 )
 declare -A OPIMM_FUNCT3=( \
     ["addi"]=0 ["slti"]=2 ["sltiu"]=3 ["xori"]=4 ["ori"]=6 \
@@ -228,6 +229,9 @@ declare -A STORE_FUNCT3=( \
 )
 declare -A BRANCH_FUNCT3=( \
     ["beq"]=0 ["bne"]=1 ["blt"]=4 ["bge"]=5 ["bltu"]=6 ["bgeu"]=7 \
+)
+declare -A VEC_I_FUNCT3=(\
+    ["lv"]=1 ["sv"]=2 \
 )
 
 ORG=0
@@ -323,10 +327,12 @@ while read -r LINE; do
             assert_len 2 ; assert isnum $(a1) ; assert_range 0 0xFFFFFFFF $(a1)
             code=$(hexinst $(a1))
             ;;
-        lv)
-            assert_len 4 ; assert isvreg $(a1) ; assert isxreg $(a2) ; assert isnum $(a3) ; assert_range -2048 2047 $(a3)
+        lv | sv)
+            # {LV|SV} vX, rX, imm
+            assert_gte 4 ; assert isvreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
             r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))" ; offset="$(a3)"
-            code=$(hexinst $(i_inst $offset $r_base 1 $r_dest 11))
+            code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["$(a0)"]} $r_dest ${OPS["VEC_I"]}))
             ;;
         *)
             kaput "Invalid instruction '${INST[@]}'"
