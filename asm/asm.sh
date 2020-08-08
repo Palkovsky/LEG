@@ -136,7 +136,6 @@ while read -r LINE; do
             NEXT_ORG="$(( $ORG + $count ))"
             ;;
     esac
-
     [ -z "$EMIT" ] || NEXT+="${EMIT}"
     ORG=$NEXT_ORG
 done <<< "$LINES"
@@ -321,7 +320,8 @@ while read -r LINE; do
             code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["$(a0)"]} ${OPS["BRANCH"]}))
             ;;
         org) 
-            NEXT_ORG=$(asnum $(a1)) 
+            NEXT_ORG=$(asnum $(a1))
+            code=""
             ;;
         dw)
             assert_len 2 ; assert isnum $(a1) ; assert_range 0 0xFFFFFFFF $(a1)
@@ -338,6 +338,6 @@ while read -r LINE; do
             kaput "Invalid instruction '${INST[@]}'"
             ;;
     esac
-    echo "mem[$(($ORG / 4))] = 'h$code;"
+    [ -z "$code" ] || echo "mem[$(($ORG / 4))] = 'h$code;"
     ORG=$NEXT_ORG
 done <<< "$LINES"
