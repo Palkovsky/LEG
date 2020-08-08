@@ -18,6 +18,7 @@ jal x14, send_x1
 lw x1, x0, ascii_cpy+24
 jal x14, send_x1
 lw x1, x0, ascii_cpy+28
+jal x14, send_x1
 
 hang:
     jal x0, hang

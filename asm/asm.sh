@@ -133,7 +133,7 @@ while read -r LINE; do
                 assert isnum "$word" ; assert_range 0 0xFFFFFFFF "$word"
                 EMIT+="dw $word\n"
             done
-            NEXT_ORG="$(( $ORG + $count ))"
+            NEXT_ORG="$(( $ORG + ($count-1)*4 ))"
             ;;
     esac
     [ -z "$EMIT" ] || NEXT+="${EMIT}"
@@ -331,13 +331,13 @@ while read -r LINE; do
             # {LV|SV} vX, rX, imm
             assert_gte 4 ; assert isvreg $(a1) ; assert isxreg $(a2)
             offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
-            r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))" ; offset="$(a3)"
+            r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))"
             code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["$(a0)"]} $r_dest ${OPS["VEC_I"]}))
             ;;
         *)
             kaput "Invalid instruction '${INST[@]}'"
             ;;
     esac
-    [ -z "$code" ] || echo "mem[$(($ORG / 4))] = 'h$code;"
+    [ -z "$code" ] || echo "mem[$(($ORG / 4))] = 'h$code; // ${INST[@]}"
     ORG=$NEXT_ORG
 done <<< "$LINES"

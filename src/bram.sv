@@ -148,8 +148,8 @@ module bram #(
      mem[04] = 32'h4080d093;
      mem[05] = 32'hfe0088e3;
 	   mem[06] = 32'hff5ff06f;
-      */
-     
+     */
+	  
      /*
       # Vector load test
       0: addi x1, x0, 16
@@ -158,7 +158,6 @@ module bram #(
       12: lv v1, x1, 16
       16: jal x0, 2
       32: dh 0000h 1111h 2222h 3333h 4444h 5555h ...
-      */
      mem[0] = 'h01000093;
      mem[1] = 'h0100900B;
      mem[2] = 'h0200A00B;
@@ -174,7 +173,44 @@ module bram #(
      mem[13] = 'hBBBBAAAA;
      mem[14] = 'hDDDDCCCC;
      mem[15] = 'hFFFFEEEE;
+    */
 
+mem[0] = 'hfff00793; // addi x15 x0 - 1
+mem[1] = 'h1000100b; // lv v0 x0 ascii
+mem[2] = 'h1200200b; // sv v0 x0 ascii_cpy
+mem[3] = 'h12002083; // lw x1 x0 ascii_cpy
+mem[4] = 'h0400076f; // jal x14 send_x1
+mem[5] = 'h12402083; // lw x1 x0 ascii_cpy + 4
+mem[6] = 'h0380076f; // jal x14 send_x1
+mem[7] = 'h12802083; // lw x1 x0 ascii_cpy + 8
+mem[8] = 'h0300076f; // jal x14 send_x1
+mem[9] = 'h12c02083; // lw x1 x0 ascii_cpy + 12
+mem[10] = 'h0280076f; // jal x14 send_x1
+mem[11] = 'h13002083; // lw x1 x0 ascii_cpy + 16
+mem[12] = 'h0200076f; // jal x14 send_x1
+mem[13] = 'h13402083; // lw x1 x0 ascii_cpy + 20
+mem[14] = 'h0180076f; // jal x14 send_x1
+mem[15] = 'h13802083; // lw x1 x0 ascii_cpy + 24
+mem[16] = 'h0100076f; // jal x14 send_x1
+mem[17] = 'h13c02083; // lw x1 x0 ascii_cpy + 28
+mem[18] = 'h0080076f; // jal x14 send_x1
+mem[19] = 'h0000006f; // jal x0 hang
+mem[20] = 'h00178023; // sb x1 x15 0
+mem[21] = 'h4080d093; // srai x1 x1 8
+mem[22] = 'h00178023; // sb x1 x15 0
+mem[23] = 'h4080d093; // srai x1 x1 8
+mem[24] = 'h00178023; // sb x1 x15 0
+mem[25] = 'h4080d093; // srai x1 x1 8
+mem[26] = 'h00178023; // sb x1 x15 0
+mem[27] = 'h00070067; // jalr x0 x14 0
+mem[64] = 'h41424344; // dw 0x41424344
+mem[65] = 'h45464748; // dw 0x45464748
+mem[66] = 'h494a4b4c; // dw 0x494a4b4c
+mem[67] = 'h4d4e4f50; // dw 0x4d4e4f50
+mem[68] = 'h51525354; // dw 0x51525354
+mem[69] = 'h55565758; // dw 0x55565758
+mem[70] = 'h595a3132; // dw 0x595a3132
+mem[71] = 'h33343536; // dw 0x33343536
 	end
 
   always @(posedge i_clk) begin
