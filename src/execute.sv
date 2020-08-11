@@ -77,6 +77,9 @@ module execute (
    logic [15:0][15:0]        w_vram_rdata2;
    logic [7:0][31:0]         w_vram_rdata2_32;
 
+   logic [15:0]              w_vmul_dot;
+   logic [15:0][15:0]        w_vmul_res;
+
    assign w_vram_rdata1_32 = w_vram_rdata1;
    assign w_vram_rdata2_32 = w_vram_rdata2;
    /*
@@ -104,7 +107,7 @@ module execute (
    task STORE_SEQ();
    endtask
 
-   task VEC_SEQ();
+   task VECI_SEQ();
       if (w_funct3 == `VECI_LV)
          VEC_LOAD_SEQ();
       else if (w_funct3 == `VECI_SV)
@@ -134,21 +137,36 @@ module execute (
       // Write signals
       w_vram_we <= 0;
       w_vram_waddr <= w_rd;
-      w_vram_wdata <= r_vec_tmp;
       
       // Read signals
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
 
       if (w_opcode == `OP_VEC_I) begin
+         w_vram_wdata <= r_vec_tmp;
          case (w_funct3)
             `VECI_LV:
                w_vram_we <= (r_vec_transfered >= 8);
             `VECI_SV:
                w_vram_raddr1 <= w_rd;
          endcase
+      end else if (w_opcode == `OP_VEC_R) begin
+         w_vram_wdata <= w_vmul_res;
+         case (w_funct7)
+           `VECR_MULV:
+             w_vram_we <= 1;
+         endcase
       end
    end
+
+   task VECR_SEQ();
+      case (w_funct7)
+        `VECR_DOTV:
+          X[w_rd] <= w_vmul_dot;
+        `VECR_MULV:
+          ;
+      endcase
+   endtask
 
    // Drive memory interface for STORE and LOAD.
    always_comb begin
@@ -427,7 +445,8 @@ module execute (
            `JALR:   JALR_SEQ();
            `BRANCH: BRANCH_SEQ();
            // Custom opcodes
-           `OP_VEC_I: VEC_SEQ();
+           `OP_VEC_I: VECI_SEQ();
+           `OP_VEC_R: VECR_SEQ();
            `NOP: ;
          endcase
       end
@@ -449,5 +468,15 @@ module execute (
      .i_write_enable(w_vram_we),
      .i_write_addr(w_vram_waddr),
      .i_write_data(w_vram_wdata)
+   );
+
+   vec_mul #(
+     .VEC_SIZE(16)
+   ) vec_mul (
+     .i_vec_a(w_vram_rdata1),
+     .i_vec_b(w_vram_rdata2),
+
+     .o_dot(w_vmul_dot),
+     .o_vec_c(w_vmul_res)
    );
 endmodule

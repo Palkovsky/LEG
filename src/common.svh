@@ -21,6 +21,7 @@
  `define OP_IMM   7'b0010011
  // Custom OPCODEs
  `define OP_VEC_I 7'b0001011
+ `define OP_VEC_R 7'b0101011
  `define NOP      7'b0000000
 
  // BRANCH types
@@ -95,6 +96,10 @@
 // Vector immediate instructions
  `define VECI_LV 3'h1 // Load vector
  `define VECI_SV 3'h2 // Store vector
+
+// Vector register instructions
+ `define VECR_DOTV 7'h1 // Dot product of two vectors
+ `define VECR_MULV 7'h2 // Component-wise product of two vectors
 
 // UART
  `define UART_BAUD_RATE 115200

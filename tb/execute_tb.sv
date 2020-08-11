@@ -772,6 +772,31 @@ module execute_tb;
          `CHECK_EQUAL(execute.X[15], 'h44332211);
          `CHECK_EQUAL(finished, 1);
       end
+
+      `TEST_CASE("DOTV") begin
+         // DOTV x1, v0, v1
+         inst <= R(`OP_VEC_R, 0, `VECR_DOTV, 1, 0, 1);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v0 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         `CHECK_EQUAL(execute.X[1], 'h0000);
+         next_cycle();
+         `CHECK_EQUAL(execute.X[1], 15 * 2048);
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("MULV") begin
+         // MULV v0, v0, v1
+         inst <= R(`OP_VEC_R, 0, `VECR_MULV, 0, 0, 1);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v0 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[0], execute.vec_ram.mem[1]);
+         `CHECK_EQUAL(finished, 1);
+      end
    end;
    `WATCHDOG(10ms);
 
