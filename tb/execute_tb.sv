@@ -854,8 +854,7 @@ module execute_tb;
       `TEST_CASE("LEMV + GEMV") begin
          // vunit: .execute
          // vunit: .vec
-         // LEMV vX, v0, v1
-         // GEMV vX, v0, v1
+         // LEMV vX, v1, v0
          inst <= R(`OP_VEC_R, `VEC_LE, `VECR_CMPMV, 0, 1, 0);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
@@ -865,7 +864,8 @@ module execute_tb;
          next_cycle();
          `CHECK_EQUAL(execute.r_vcmp_mask, 16'b1011100110000000);
          `CHECK_EQUAL(finished, 1);
-
+         
+         // GEMV vX, v1, v0
          inst <= R(`OP_VEC_R, `VEC_GE, `VECR_CMPMV, 0, 1, 0);
          next_cycle();
          `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);

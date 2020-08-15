@@ -210,7 +210,7 @@ imm_rest() {
 declare -A OPS=( \
     ["OPIMM"]=19 ["LUI"]=55 ["AUIPC"]=23 ["OP"]=51 ["JAL"]=111 \
     ["JALR"]=103 ["BRANCH"]=99 ["LOAD"]=3 ["STORE"]=35 \
-    ["VEC_I"]=11 ["NOP"]=0
+    ["VEC_I"]=11 ["VEC_R"]=43 ["NOP"]=0
 )
 declare -A OPIMM_FUNCT3=( \
     ["addi"]=0 ["slti"]=2 ["sltiu"]=3 ["xori"]=4 ["ori"]=6 \
@@ -231,6 +231,9 @@ declare -A BRANCH_FUNCT3=( \
 )
 declare -A VEC_I_FUNCT3=(\
     ["lv"]=1 ["sv"]=2 \
+)
+declare -A VEC_R_CMP_FUNCT3=( \
+    ["eq"]=0 ["ne"]=1 ["lt"]=2 ["le"]=3 ["gt"]=4 ["ge"]=5 \
 )
 
 ORG=0
@@ -319,6 +322,51 @@ while read -r LINE; do
             offset=$(( $addr-$ORG )) ; assert_range -4096 4095 $offset
             code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["$(a0)"]} ${OPS["BRANCH"]}))
             ;;
+        lv | sv)
+            # {LV|SV} vX, rX, imm
+            assert_gte 4 ; assert isvreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+            r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))"
+            code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["$(a0)"]} $r_dest ${OPS["VEC_I"]}))
+            ;;
+        dotv)
+            # DOTV x1, v0, v1
+            assert_len 4 ; assert isxreg $(a1) ; assert isvreg $(a2) ; assert isvreg $(a3)
+            r_dest="$(xreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
+            code=$(hexinst $(r_inst 1 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
+            ;;
+        mulv)
+            # MULV v0, v0, v1
+            assert_len 4 ; assert isvreg $(a1) ; assert isvreg $(a2) ; assert isvreg $(a3)
+            r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
+            code=$(hexinst $(r_inst 2 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
+            ;;
+        eqv | nev | ltv | lev | gtv | gev)
+            # EQV v0, v1
+            assert_len 3 ; assert isvreg $(a1) ; assert isvreg $(a2)
+            r_1="$(vreg_to_num $(a1))" ; r_2="$(vreg_to_num $(a2))"
+            name="$(echo $(a0) | rev | cut -c 2- | rev)"
+            code=$(hexinst $(r_inst 3 $r_2 $r_1 ${VEC_R_CMP_FUNCT3["$name"]} 0 ${OPS["VEC_R"]}))
+            ;;
+        eqmv | nemv | ltmv | lemv | gtmv | gemv)
+            # EQMV v0, v1
+            assert_len 3 ; assert isvreg $(a1) ; assert isvreg $(a2)
+            r_1="$(vreg_to_num $(a1))" ; r_2="$(vreg_to_num $(a2))"
+            name="$(echo $(a0) | rev | cut -c 3- | rev)"
+            code=$(hexinst $(r_inst 5 $r_2 $r_1 ${VEC_R_CMP_FUNCT3["$name"]} 0 ${OPS["VEC_R"]}))
+            ;;
+        movv)
+            # MOVV v1, v0
+            assert_len 3 ; assert isvreg $(a1) ; assert isvreg $(a2)
+            r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))"
+            code=$(hexinst $(r_inst 10 0 $r_1 0 $r_dest ${OPS["VEC_R"]}))
+            ;;
+        movmv)
+            # MOVMV v1, v0
+            assert_len 3 ; assert isvreg $(a1) ; assert isvreg $(a2)
+            r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))"
+            code=$(hexinst $(r_inst 11 0 $r_1 0 $r_dest ${OPS["VEC_R"]}))
+            ;;
         org) 
             NEXT_ORG=$(asnum $(a1))
             code=""
@@ -326,13 +374,6 @@ while read -r LINE; do
         dw)
             assert_len 2 ; assert isnum $(a1) ; assert_range 0 0xFFFFFFFF $(a1)
             code=$(hexinst $(a1))
-            ;;
-        lv | sv)
-            # {LV|SV} vX, rX, imm
-            assert_gte 4 ; assert isvreg $(a1) ; assert isxreg $(a2)
-            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
-            r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))"
-            code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["$(a0)"]} $r_dest ${OPS["VEC_I"]}))
             ;;
         *)
             kaput "Invalid instruction '${INST[@]}'"
