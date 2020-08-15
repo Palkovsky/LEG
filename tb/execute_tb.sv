@@ -774,11 +774,13 @@ module execute_tb;
       end
 
       `TEST_CASE("DOTV") begin
+         // vunit: .execute
+         // vunit: .vec
          // DOTV x1, v0, v1
          inst <= R(`OP_VEC_R, 0, `VECR_DOTV, 1, 0, 1);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
-         // v0 = [0.0, 0.125, ..., 1.875]
+         // v1 = [0.0, 0.125, ..., 1.875]
          execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
          `CHECK_EQUAL(execute.X[1], 'h0000);
          next_cycle();
@@ -787,15 +789,82 @@ module execute_tb;
       end
 
       `TEST_CASE("MULV") begin
+         // vunit: .execute
+         // vunit: .vec
          // MULV v0, v0, v1
          inst <= R(`OP_VEC_R, 0, `VECR_MULV, 0, 0, 1);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
-         // v0 = [0.0, 0.125, ..., 1.875]
+         // v1 = [0.0, 0.125, ..., 1.875]
          execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
          next_cycle();
          `CHECK_EQUAL(execute.vec_ram.mem[0], execute.vec_ram.mem[1]);
          `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("EQV") begin
+         // vunit: .execute
+         // vunit: .vec
+         inst <= R(`OP_VEC_R, `VEC_EQ, `VECR_CMPV, 0, 0, 1);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v1 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("EQMV") begin
+         // vunit: .execute
+         // vunit: .vec
+         inst <= R(`OP_VEC_R, `VEC_EQ, `VECR_CMPMV, 0, 0, 1);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v1 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.r_vcmp_mask <= 16'b1011100010001001;
+         
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);
+         `CHECK_EQUAL(finished, 1);
+
+         execute.r_vcmp_mask <= 16'b1011100101101001;
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 0);
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("LTV") begin
+         // vunit: .execute
+         // vunit: .vec
+         inst <= R(`OP_VEC_R, `VEC_LT, `VECR_CMPV, 0, 1, 0);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v1 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 16'b1111111100000000);
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("LEMV + GEMV") begin
+         // vunit: .execute
+         // vunit: .vec
+         inst <= R(`OP_VEC_R, `VEC_LE, `VECR_CMPMV, 0, 1, 0);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v1 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.r_vcmp_mask <= 16'b1011100110101001;
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 16'b1011100110000000);
+         `CHECK_EQUAL(finished, 1);
+
+         inst <= R(`OP_VEC_R, `VEC_GE, `VECR_CMPMV, 0, 1, 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);
+         `CHECK_EQUAL(finished, 1); 
       end
    end;
    `WATCHDOG(10ms);

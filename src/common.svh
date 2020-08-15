@@ -98,8 +98,18 @@
  `define VECI_SV 3'h2 // Store vector
 
 // Vector register instructions
- `define VECR_DOTV 7'h1 // Dot product of two vectors
- `define VECR_MULV 7'h2 // Component-wise product of two vectors
+ `define VECR_DOTV 7'h1  // Dot product of two vectors
+ `define VECR_MULV 7'h2  // Component-wise product of two vectors
+ `define VECR_CMPV 7'h3  // Vector comparsion
+ `define VECR_CMPMV 7'h4 // Vector comparsion of masked elements
+
+// Vector comparsion types, encoded in funct3
+ `define VEC_EQ 3'h0
+ `define VEC_NE 3'h1
+ `define VEC_LT 3'h2
+ `define VEC_LE 3'h3
+ `define VEC_GT 3'h4
+ `define VEC_GE 3'h5
 
 // UART
  `define UART_BAUD_RATE 115200

@@ -65,6 +65,7 @@ module execute (
    logic [5:0]               r_vec_transfered = 0;
    logic [7:0][31:0]         r_vec_tmp = 0;
 
+   // vec_ram access
    logic                     w_vram_we;
    logic [4:0]               w_vram_waddr;
    logic [15:0][15:0]        w_vram_wdata;
@@ -72,16 +73,22 @@ module execute (
    logic [4:0]               w_vram_raddr1;
    logic [15:0][15:0]        w_vram_rdata1;
    logic [7:0][31:0]         w_vram_rdata1_32;
+   assign w_vram_rdata1_32 = w_vram_rdata1;
 
    logic [4:0]               w_vram_raddr2;
    logic [15:0][15:0]        w_vram_rdata2;
    logic [7:0][31:0]         w_vram_rdata2_32;
+   assign w_vram_rdata2_32 = w_vram_rdata2;
 
+   // vec_mul
    logic [15:0]              w_vmul_dot;
    logic [15:0][15:0]        w_vmul_res;
 
-   assign w_vram_rdata1_32 = w_vram_rdata1;
-   assign w_vram_rdata2_32 = w_vram_rdata2;
+   // vec_cmp
+   logic [15:0]              r_vcmp_mask = '1;
+   logic [15:0]              w_vcmp_mask_arg;
+   logic [15:0]              w_vcmp_mask_res;
+
    /*
     * ========= MEMORY ACCESS INSTRUCTIONS
     */
@@ -137,10 +144,14 @@ module execute (
       // Write signals
       w_vram_we <= 0;
       w_vram_waddr <= w_rd;
+      w_vram_wdata <= 0;
       
       // Read signals
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
+
+      // cmp
+      w_vcmp_mask_arg <= 0;
 
       if (w_opcode == `OP_VEC_I) begin
          w_vram_wdata <= r_vec_tmp;
@@ -150,21 +161,27 @@ module execute (
             `VECI_SV:
                w_vram_raddr1 <= w_rd;
          endcase
-      end else if (w_opcode == `OP_VEC_R) begin
-         w_vram_wdata <= w_vmul_res;
+      end 
+      else if (w_opcode == `OP_VEC_R) begin
          case (w_funct7)
-           `VECR_MULV:
-             w_vram_we <= 1;
+           `VECR_DOTV: ;
+           `VECR_MULV: begin
+               w_vram_wdata <= w_vmul_res;
+               w_vram_we <= 1;
+           end
+           `VECR_CMPV:  w_vcmp_mask_arg <= '1;
+           `VECR_CMPMV: w_vcmp_mask_arg <= r_vcmp_mask;
          endcase
       end
    end
 
    task VECR_SEQ();
       case (w_funct7)
-        `VECR_DOTV:
-          X[w_rd] <= w_vmul_dot;
-        `VECR_MULV:
-          ;
+         `VECR_DOTV:
+            X[w_rd] <= w_vmul_dot;
+         `VECR_MULV:  ;
+         `VECR_CMPV, `VECR_CMPMV:  
+            r_vcmp_mask <= w_vcmp_mask_res;
       endcase
    endtask
 
@@ -177,14 +194,10 @@ module execute (
       mem_transfer_done <= 0;
 
       case (w_funct3)
-        `SB:
-          o_wr_width <= 1;
-        `SH:
-          o_wr_width <= 2;
-        `SW:
-          o_wr_width <= 4;
-        default:
-          o_wr_width <= 0;
+        `SB: o_wr_width <= 1;
+        `SH: o_wr_width <= 2;
+        `SW: o_wr_width <= 4;
+        default: o_wr_width <= 0;
       endcase
 
       if (w_opcode == `STORE) begin
@@ -369,43 +382,43 @@ module execute (
     */
    // Combinatorial part of the jump instructions logic.
    always_comb begin
-      o_new_pc = 0;
-      o_pc_change = 0;
+      o_new_pc <= 0;
+      o_pc_change <= 0;
       case (w_opcode)
         `JAL: begin
-           o_new_pc = r_alu_result;
-           o_pc_change = 1;
+           o_new_pc <= r_alu_result;
+           o_pc_change <= 1;
         end
         `JALR: begin
-           o_new_pc = r_alu_result & ~(32'b1);
-           o_pc_change = 1;
+           o_new_pc <= r_alu_result & ~(32'b1);
+           o_pc_change <= 1;
         end
         `BRANCH: begin
-           o_pc_change = 0;
+           o_pc_change <= 0;
            case (w_funct3)
              `BEQ: if (X[w_rs1] == X[w_rs2]) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              `BNE: if (X[w_rs1] != X[w_rs2]) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              `BLT: if ($signed(X[w_rs1]) < $signed(X[w_rs2])) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              `BLTU: if (X[w_rs1] < X[w_rs2]) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              `BGE: if ($signed(X[w_rs1]) > $signed(X[w_rs2])) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              `BGEU: if (X[w_rs1] > X[w_rs2]) begin
-                o_new_pc = r_alu_result;
-                o_pc_change = 1;
+                o_new_pc <= r_alu_result;
+                o_pc_change <= 1;
              end
              default: ; // Invalid inst
            endcase
@@ -478,5 +491,16 @@ module execute (
 
      .o_dot(w_vmul_dot),
      .o_vec_c(w_vmul_res)
+   );
+
+   vec_cmp #(
+      .VEC_SIZE(16)
+   ) vec_cmp (
+     .i_op(w_funct3),
+     .i_mask(w_vcmp_mask_arg),
+     .i_vec_a(w_vram_rdata1),
+     .i_vec_b(w_vram_rdata2), 
+     
+     .o_mask(w_vcmp_mask_res)
    );
 endmodule
