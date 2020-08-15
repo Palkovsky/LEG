@@ -805,6 +805,7 @@ module execute_tb;
       `TEST_CASE("EQV") begin
          // vunit: .execute
          // vunit: .vec
+         // EQV vX, v0, v1
          inst <= R(`OP_VEC_R, `VEC_EQ, `VECR_CMPV, 0, 0, 1);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
@@ -818,13 +819,14 @@ module execute_tb;
       `TEST_CASE("EQMV") begin
          // vunit: .execute
          // vunit: .vec
+         // EQMV vX, v0, v1
          inst <= R(`OP_VEC_R, `VEC_EQ, `VECR_CMPMV, 0, 0, 1);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
          // v1 = [0.0, 0.125, ..., 1.875]
          execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
          execute.r_vcmp_mask <= 16'b1011100010001001;
-         
+
          next_cycle();
          `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);
          `CHECK_EQUAL(finished, 1);
@@ -838,6 +840,7 @@ module execute_tb;
       `TEST_CASE("LTV") begin
          // vunit: .execute
          // vunit: .vec
+         // LTV vX, v0, v1
          inst <= R(`OP_VEC_R, `VEC_LT, `VECR_CMPV, 0, 1, 0);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
@@ -851,6 +854,8 @@ module execute_tb;
       `TEST_CASE("LEMV + GEMV") begin
          // vunit: .execute
          // vunit: .vec
+         // LEMV vX, v0, v1
+         // GEMV vX, v0, v1
          inst <= R(`OP_VEC_R, `VEC_LE, `VECR_CMPMV, 0, 1, 0);
          // v0 = [1.0, ..., 1.0]
          execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
@@ -864,7 +869,48 @@ module execute_tb;
          inst <= R(`OP_VEC_R, `VEC_GE, `VECR_CMPMV, 0, 1, 0);
          next_cycle();
          `CHECK_EQUAL(execute.r_vcmp_mask, 16'b0000000010000000);
-         `CHECK_EQUAL(finished, 1); 
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("MOVV") begin
+         // vunit: .execute
+         // vunit: .vec
+         // MOVV v1, v0, vX
+         inst <= R(`OP_VEC_R, 0, `VECR_MOVV, 1, 0, 0);
+         // v0 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[0] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.vec_ram.mem[1] <= 0;
+         execute.vec_ram.mem[15] <= 0;
+
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[1], execute.vec_ram.mem[0]);
+         `CHECK_EQUAL(finished, 1);
+
+         // MOVV v15, v1, vX
+         inst <= R(`OP_VEC_R, 0, `VECR_MOVV, 15, 1, 0);
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[15], execute.vec_ram.mem[0]);
+         `CHECK_EQUAL(finished, 1);
+      end
+
+      `TEST_CASE("MOVMV") begin
+         // vunit: .execute
+         // vunit: .vec
+         // MOVMV v2, v0, vX
+         inst <= R(`OP_VEC_R, 0, `VECR_MOVMV, 2, 0, 0);
+         // v0 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[0] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.vec_ram.mem[1] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         execute.r_vcmp_mask <= 16'b1011100110101001;
+
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[2], 256'h0000_0000_0200_0300_0400_0000_0000_0700_0800_0000_0a00_0000_0c00_0000_0000_0f00);
+
+         inst <= R(`OP_VEC_R, 0, `VECR_MOVMV, 1, 2, 0);
+         execute.r_vcmp_mask <= 16'b1000000110101000;
+
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[1], 256'h0000_0800_0800_0800_0800_0800_0800_0700_0800_0800_0a00_0800_0c00_0800_0800_0800);
       end
    end;
    `WATCHDOG(10ms);

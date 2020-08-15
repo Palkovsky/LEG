@@ -150,8 +150,14 @@ module execute (
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
 
-      // cmp
-      w_vcmp_mask_arg <= 0;
+      // Vector mask
+      case ({w_opcode, w_funct7})
+         { `OP_VEC_R, `VECR_CMPMV },
+         { `OP_VEC_R, `VECR_MOVMV }: 
+            w_vcmp_mask_arg <= r_vcmp_mask;
+         default: 
+            w_vcmp_mask_arg <= '1;
+      endcase
 
       if (w_opcode == `OP_VEC_I) begin
          w_vram_wdata <= r_vec_tmp;
@@ -169,8 +175,15 @@ module execute (
                w_vram_wdata <= w_vmul_res;
                w_vram_we <= 1;
            end
-           `VECR_CMPV:  w_vcmp_mask_arg <= '1;
-           `VECR_CMPMV: w_vcmp_mask_arg <= r_vcmp_mask;
+           `VECR_CMPV, `VECR_CMPMV:  ;
+           `VECR_MOVV, `VECR_MOVMV: begin
+              w_vram_waddr <= w_rd;
+              w_vram_raddr2 <= w_rd;
+              w_vram_we <= 1;
+              for (int i = 0; i < 16; i++) begin
+               w_vram_wdata[i] <= w_vcmp_mask_arg[i] ? w_vram_rdata1[i] : w_vram_rdata2[i];
+              end
+           end
          endcase
       end
    end
@@ -182,6 +195,8 @@ module execute (
          `VECR_MULV:  ;
          `VECR_CMPV, `VECR_CMPMV:  
             r_vcmp_mask <= w_vcmp_mask_res;
+         `VECR_MOVV: ;
+         `VECR_MOVMV: ;
       endcase
    endtask
 

@@ -98,10 +98,12 @@
  `define VECI_SV 3'h2 // Store vector
 
 // Vector register instructions
- `define VECR_DOTV 7'h1  // Dot product of two vectors
- `define VECR_MULV 7'h2  // Component-wise product of two vectors
- `define VECR_CMPV 7'h3  // Vector comparsion
- `define VECR_CMPMV 7'h4 // Vector comparsion of masked elements
+ `define VECR_DOTV  7'h1 // Dot product of two vectors
+ `define VECR_MULV  7'h2 // Component-wise product of two vectors
+ `define VECR_CMPV  7'h3 // Vector comparsion
+ `define VECR_CMPMV 7'h5 // Vector comparsion of masked elements
+ `define VECR_MOVV  7'hA // Vector move
+ `define VECR_MOVMV 7'hB // Masked vector move
 
 // Vector comparsion types, encoded in funct3
  `define VEC_EQ 3'h0
