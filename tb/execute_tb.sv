@@ -912,7 +912,55 @@ module execute_tb;
          next_cycle();
          `CHECK_EQUAL(execute.vec_ram.mem[1], 256'h0000_0800_0800_0800_0800_0800_0800_0700_0800_0800_0a00_0800_0c00_0800_0800_0800);
       end
+
+      `TEST_CASE("MULMV") begin
+         // vunit: .execute
+         // vunit: .vec
+         // vunit: .mulmv
+         // MULMV v17, v0-v15, v16
+         inst <= R(`OP_VEC_R, 0, `VECR_MULMV, 17, 0, 16);
+         execute.vec_ram.mem[0] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.vec_ram.mem[1] <= 256'h0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+         execute.vec_ram.mem[2] <= 256'h0000_0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+         execute.vec_ram.mem[15] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+
+         execute.vec_ram.mem[16] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         execute.vec_ram.mem[17] <= 0;
+
+         for (int i=0; i<15; i++) begin
+            `CHECK_EQUAL(execute.r_vec_counter, i);
+            next_cycle();
+            `CHECK_EQUAL(finished, 0);
+            `CHECK_EQUAL(execute.w_vram_we, 0);
+         end
+         next_cycle();
+         
+         `CHECK_EQUAL(execute.r_vec_tmp16[0], 15 * 2048);
+         `CHECK_EQUAL(execute.r_vec_tmp16[1], 2048);
+         `CHECK_EQUAL(execute.r_vec_tmp16[2], 2048);
+         `CHECK_EQUAL(execute.r_vec_tmp16[15], 15 * 2048);
+
+         // Write phase
+         `CHECK_EQUAL(finished, 0);
+         `CHECK_EQUAL(execute.w_vram_we, 1);
+         `CHECK_EQUAL(execute.r_vec_counter, 16);
+         `CHECK_EQUAL(execute.w_vram_waddr, 17);
+         `CHECK_EQUAL(execute.w_vram_wdata, execute.r_vec_tmp16);
+
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[17][15:0], 15 * 2048);
+         `CHECK_EQUAL(execute.vec_ram.mem[17][31:16], 2048);
+         `CHECK_EQUAL(execute.vec_ram.mem[17][57:32], 2048);
+         `CHECK_EQUAL(execute.vec_ram.mem[17][255:240], 15 * 2048);
+         `CHECK_EQUAL(execute.r_vec_counter, 17);
+         `CHECK_EQUAL(finished, 1);
+
+         // Next instruction
+         next_cycle();
+         `CHECK_EQUAL(execute.r_vec_counter, 0);
+      end
    end;
+
    `WATCHDOG(10ms);
 
    always begin
