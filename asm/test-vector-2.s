@@ -4,3 +4,4 @@ LEMV v1, v0
 GEMV v1, v0
 DOTV x1, v0, v1
 MULV v0, v0, v1
+MULMV v17, v0, v16

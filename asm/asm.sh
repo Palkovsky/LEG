@@ -341,6 +341,12 @@ while read -r LINE; do
             r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
             code=$(hexinst $(r_inst 2 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
             ;;
+        mulmv)
+            # MULMV vX, vM, vV
+            assert_len 4 ; assert isvreg $(a1) ; assert isvreg $(a2) ; assert isvreg $(a3)
+            r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
+            code=$(hexinst $(r_inst 12 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
+            ;;
         eqv | nev | ltv | lev | gtv | gev)
             # EQV v0, v1
             assert_len 3 ; assert isvreg $(a1) ; assert isvreg $(a2)
