@@ -14,14 +14,14 @@ LINES=$(echo "$TEXT" |
     # Remove comments, starting and trailing spaces, empty lines, merge multiple spaces into one
     sed 's/\s*#.*//; s/^\s*//; s/\s*$//; /^$/d; s/ \+/ /g' |
     # Replace '+' with ' + ', etc.
-    sed 's/+/ + /; s/-/ - /' | 
+    sed 's/+/ + /; s/-/ - /' |
     # Make separators uniform
     awk -F " |," 'BEGIN {OFS = " "} { $1 = $1; print }' |
     # Eliminate trailng and duplicated separators
     sed 's/ \+/ /g; s/ *$//' |
     # Detect labels
     sed -E 's/(.+):$/LABEL \1/' |
-    tr '[:upper:]' '[:lower:]') 
+    tr '[:upper:]' '[:lower:]')
 
 # Predicates
 isxreg() {
@@ -30,13 +30,13 @@ isxreg() {
 isvreg() {
     [[ "$1" =~ ^v[0-9]+$ ]]
 }
-isdec() { 
-    [[ "$1" =~ ^-?[0-9]+$ ]]  
+isdec() {
+    [[ "$1" =~ ^-?[0-9]+$ ]]
 }
-ishex() { 
-    [[ "$1" =~ ^0x([0-9]|[a-f])+$ ]] 
+ishex() {
+    [[ "$1" =~ ^0x([0-9]|[a-f])+$ ]]
 }
-isnum() { 
+isnum() {
     isdec "$1" || ishex "$1"
 }
 islabel() {
@@ -45,7 +45,7 @@ islabel() {
 
 # Conversions
 asnum() {
-    ishex "$1" && printf "%d" "$1" || "$1"    
+    ishex "$1" && printf "%d" "$1" || "$1"
 }
 
 # Checks if current instruction has expected number of elements.
@@ -99,9 +99,13 @@ a_rest() {
 LINES=$(echo "$LINES" | while read -r LINE; do
     INST=($LINE)
     case "$(a0)" in
-        set) 
+        set)
             assert_len 3 ; assert isxreg $(a1) ; assert isnum $(a2)
-            echo -e "lui $(a1) 12345\naddi $(a1) $(a1) 678"
+            n=$(( a2 ))
+            m=$(( ($n<<20)>>20  ))
+            k=$(( (($n-$m)>>12)<<12  ))
+            echo -e "lui $(a1) $(k)\naddi $(a1) $(a1) $(m)"
+            kaput "SET unimplemented"
             ;;
         *) echo "$LINE" ;;
     esac
@@ -116,7 +120,7 @@ while read -r LINE; do
     NEXT_ORG=$(( $ORG+4 ))
 
     case "$(a0)" in
-        label) 
+        label)
             assert_len 2 ; assert islabel $(a1)
             # Save label address
             LABELS[$(a1)]=$ORG ; EMIT="" ; NEXT_ORG=$ORG
@@ -240,10 +244,10 @@ ORG=0
 while read -r LINE; do
     INST=($LINE)
     NEXT_ORG=$(( $ORG+4 ))
-    
+
     #echo "$ORG, $LINE"
     case "$(a0)" in
-        addi | slti | sltiu | xori | ori | andi | slli | srli) 
+        addi | slti | sltiu | xori | ori | andi | slli | srli)
             # _ xA, xB, imm12
             assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
             imm=$(imm_rest 3)
@@ -254,13 +258,13 @@ while read -r LINE; do
             ;;
         srai)
             # srai xA, xB, imm12
-            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2) 
+            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
             imm=$(imm_rest 3) ; assert_range 0 31 $imm
             r_dest=$(xreg_to_num $(a1)) ; r_src=$(xreg_to_num $(a2))
             imm=$(( ($imm & 0x1F) + (1<<10) ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["srai"]} $r_dest ${OPS["OPIMM"]}))
             ;;
-        lui) 
+        lui)
             # LUI xA, imm20
             assert_gte 3 ; assert isxreg $(a1)
             imm=$(imm_rest 2) ; assert_range 0 0xFFFFF $imm
@@ -275,13 +279,13 @@ while read -r LINE; do
             code=$(hexinst $(u_inst $imm $r_dest ${OPS["AUIPC"]}))
             ;;
         add | slt | sltu | and | or | xor | sll | srl)
-            # _ xDEST, xA, xB 
+            # _ xDEST, xA, xB
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
             r_dest=$(xreg_to_num $(a1)) ; r_a=$(xreg_to_num $(a2)) ; r_b=$(xreg_to_num $(a3))
             code=$(hexinst $(r_inst 0 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
             ;;
         sub | sra)
-            # _ xDEST, xA, xB 
+            # _ xDEST, xA, xB
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
             r_dest=$(xreg_to_num $(a1)) ; r_a=$(xreg_to_num $(a2)) ; r_b=$(xreg_to_num $(a3))
             code=$(hexinst $(r_inst 0x20 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
@@ -373,7 +377,7 @@ while read -r LINE; do
             r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))"
             code=$(hexinst $(r_inst 11 0 $r_1 0 $r_dest ${OPS["VEC_R"]}))
             ;;
-        org) 
+        org)
             NEXT_ORG=$(asnum $(a1))
             code=""
             ;;

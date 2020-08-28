@@ -3,7 +3,7 @@
 
  // Sizes
  `define DATA_WIDTH 32
- `define BRAM_WIDTH 12
+ `define BRAM_WIDTH 14
  `define TX_FIFO_DEPTH 4
  `define VEC_DIM 16
 

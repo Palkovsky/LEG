@@ -124,12 +124,12 @@ module execute (
 
    task VEC_LOAD_SEQ();
       if (o_rd_ready && i_rd_valid && r_vec_counter < 8) begin
-         r_vec_tmp[r_vec_counter] <= i_data;
+         r_vec_tmp[r_vec_counter] <= { i_data[15:0], i_data[31:16] };
          r_vec_counter <= r_vec_counter + 1;
       end
       if (r_vec_counter == 8)
          r_vec_counter <= 9;
-      if (r_vec_counter == 9) 
+      if (r_vec_counter == 9)
          r_vec_counter <= 0;
    endtask
 
@@ -146,7 +146,7 @@ module execute (
       w_vram_we <= 0;
       w_vram_waddr <= w_rd;
       w_vram_wdata <= 0;
-      
+
       // Read signals
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
@@ -154,9 +154,9 @@ module execute (
       // Vector mask
       case ({w_opcode, w_funct7})
          { `OP_VEC_R, `VECR_CMPMV },
-         { `OP_VEC_R, `VECR_MOVMV }: 
+         { `OP_VEC_R, `VECR_MOVMV }:
             w_vcmp_mask_arg <= r_vcmp_mask;
-         default: 
+         default:
             w_vcmp_mask_arg <= '1;
       endcase
 
@@ -168,7 +168,7 @@ module execute (
             `VECI_SV:
                w_vram_raddr1 <= w_rd;
          endcase
-      end 
+      end
       else if (w_opcode == `OP_VEC_R) begin
          case (w_funct7)
            `VECR_DOTV: ;
@@ -201,7 +201,7 @@ module execute (
          `VECR_DOTV:
             X[w_rd] <= w_vmul_dot;
          `VECR_MULV:  ;
-         `VECR_CMPV, `VECR_CMPMV:  
+         `VECR_CMPV, `VECR_CMPMV:
             r_vcmp_mask <= w_vcmp_mask_res;
          `VECR_MOVV, `VECR_MOVMV: ;
          `VECR_MULMV: begin
@@ -255,7 +255,7 @@ module execute (
     */
    always_comb begin
       casez ({w_opcode, w_funct3, w_funct7})
-         { `LOAD, {10{1'b?}} }, 
+         { `LOAD, {10{1'b?}} },
          { `STORE, {10{1'b?}} }:
             r_last_cycle <= mem_transfer_done;
          { `OP_VEC_I, `VECI_LV, {7{1'b?}} }:
@@ -531,8 +531,8 @@ module execute (
      .i_op(w_funct3),
      .i_mask(w_vcmp_mask_arg),
      .i_vec_a(w_vram_rdata1),
-     .i_vec_b(w_vram_rdata2), 
-     
+     .i_vec_b(w_vram_rdata2),
+
      .o_mask(w_vcmp_mask_res)
    );
 endmodule
