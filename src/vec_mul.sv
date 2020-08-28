@@ -11,9 +11,8 @@ module vec_mul #(
 );
 
    always_comb begin
-      automatic logic[`FIXPOINT_WIDTH - 1:0] res = 0;
       for (int i = 0; i < VEC_SIZE; i++) begin
-         o_vec_c[i] = fixpoint_mul(i_vec_a[i], i_vec_b[i]);
+         o_vec_c[i] <= fixpoint_mul(i_vec_a[i], i_vec_b[i]);
       end
    end
 

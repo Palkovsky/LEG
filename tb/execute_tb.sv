@@ -934,7 +934,6 @@ module execute_tb;
             `CHECK_EQUAL(execute.w_vram_we, 0);
          end
          next_cycle();
-         
          `CHECK_EQUAL(execute.r_vec_tmp16[0], 15 * 2048);
          `CHECK_EQUAL(execute.r_vec_tmp16[1], 2048);
          `CHECK_EQUAL(execute.r_vec_tmp16[2], 2048);

@@ -124,7 +124,7 @@ module execute (
 
    task VEC_LOAD_SEQ();
       if (o_rd_ready && i_rd_valid && r_vec_counter < 8) begin
-         r_vec_tmp[r_vec_counter] <= { i_data[15:0], i_data[31:16] };
+         r_vec_tmp[r_vec_counter] <= i_data;
          r_vec_counter <= r_vec_counter + 1;
       end
       if (r_vec_counter == 8)
