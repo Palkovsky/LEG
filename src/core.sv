@@ -41,6 +41,7 @@ module core (
    wire                   fetch_finished;
 
    wire                   exec_rst;
+   wire                   exec_inst_valid;
    wire [31:0]            exec_addr;
    reg [`DATA_WIDTH-1:0]  exec_data_in;
    reg                    exec_rd_valid;
@@ -55,6 +56,7 @@ module core (
    assign fetch_rst = i_rst;
    assign fetch_stall = state != FETCH_STATE;
    assign exec_rst = i_rst || state != EXEC_STATE;
+   assign exec_inst_valid = state == EXEC_STATE;
 
    task FETCH_SEQ();
       if (fetch_finished)
@@ -132,7 +134,9 @@ module core (
      (
 	   .i_clk(i_clk),
 	   .i_rst(exec_rst),
+
       .i_inst(inst),
+      .i_inst_valid(exec_inst_valid),
 
       .o_addr(exec_addr),
       .o_data(exec_data_out),

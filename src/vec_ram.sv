@@ -20,13 +20,13 @@ module vec_ram #(
   input logic [15:0][VEC_SIZE-1:0]  i_write_data
 );
 
-   logic [16 * VEC_SIZE - 1:0]      mem [0:1 << VEC_INDEX_WIDTH - 1];
+   logic [16 * VEC_SIZE - 1:0]      mem [0:(1<<VEC_INDEX_WIDTH)-1];
 
    logic [VEC_INDEX_WIDTH:0]        r_addr_a;
    logic [VEC_INDEX_WIDTH:0]        r_addr_b;
 
    initial begin
-      for(int i = 0; i < 1<<VEC_INDEX_WIDTH-1; i++) begin
+      for(int i = 0; i < (1<<VEC_INDEX_WIDTH); i++) begin
          mem[i] <= 0;
       end
    end

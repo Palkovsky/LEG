@@ -3,7 +3,7 @@
 
  // Sizes
  `define DATA_WIDTH 32
- `define BRAM_WIDTH 12
+ `define BRAM_WIDTH 14
  `define TX_FIFO_DEPTH 4
  `define VEC_DIM 16
 
@@ -21,6 +21,7 @@
  `define OP_IMM   7'b0010011
  // Custom OPCODEs
  `define OP_VEC_I 7'b0001011
+ `define OP_VEC_R 7'b0101011
  `define NOP      7'b0000000
 
  // BRANCH types
@@ -95,6 +96,24 @@
 // Vector immediate instructions
  `define VECI_LV 3'h1 // Load vector
  `define VECI_SV 3'h2 // Store vector
+
+// Vector register instructions
+ `define VECR_DOTV  7'h1 // Dot product of two vectors
+ `define VECR_MULV  7'h2 // Component-wise product of two vectors
+ `define VECR_CMPV  7'h3 // Vector comparsion
+ `define VECR_CMPMV 7'h5 // Vector comparsion of masked elements
+ `define VECR_MOVV  7'hA // Vector move
+ `define VECR_MOVMV 7'hB // Masked vector move
+ `define VECR_MULMV 7'hC // Matrix multiplication
+ `define VECR_ADDV  7'hD // Vector elementwise addition
+
+// Vector comparsion types, encoded in funct3
+ `define VEC_EQ 3'h0
+ `define VEC_NE 3'h1
+ `define VEC_LT 3'h2
+ `define VEC_LE 3'h3
+ `define VEC_GT 3'h4
+ `define VEC_GE 3'h5
 
 // UART
  `define UART_BAUD_RATE 115200
