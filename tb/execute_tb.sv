@@ -801,7 +801,20 @@ module execute_tb;
          `CHECK_EQUAL(execute.vec_ram.mem[0], execute.vec_ram.mem[1]);
          `CHECK_EQUAL(finished, 1);
       end
-
+      `TEST_CASE("ADDV") begin
+         // vunit: .execute
+         // vunit: .vec
+         // ADDV v2, v0, v1
+         inst <= R(`OP_VEC_R, 0, `VECR_ADDV, 0, 0, 1);
+         // v0 = [1.0, ..., 1.0]
+         execute.vec_ram.mem[0] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
+         // v1 = [0.0, 0.125, ..., 1.875]
+         execute.vec_ram.mem[1] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         next_cycle();
+         `CHECK_EQUAL(execute.vec_ram.mem[0],
+                      256'h0800_0900_0A00_0B00_0C00_0D00_0E00_0F00_1000_1100_1200_1300_1400_1500_1600_1700);
+         `CHECK_EQUAL(finished, 1);
+      end
       `TEST_CASE("EQV") begin
          // vunit: .execute
          // vunit: .vec

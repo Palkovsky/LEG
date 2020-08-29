@@ -105,6 +105,7 @@
  `define VECR_MOVV  7'hA // Vector move
  `define VECR_MOVMV 7'hB // Masked vector move
  `define VECR_MULMV 7'hC // Matrix multiplication
+ `define VECR_ADDV  7'hD // Vector elementwise addition
 
 // Vector comparsion types, encoded in funct3
  `define VEC_EQ 3'h0

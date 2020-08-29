@@ -83,7 +83,8 @@ module execute (
 
    // vec_mul
    logic [15:0]              w_vmul_dot;
-   logic [15:0][15:0]        w_vmul_res;
+   logic [15:0][15:0]        w_vmul_mul;
+   logic [15:0][15:0]        w_vmul_add;
 
    // vec_cmp
    logic [15:0]              r_vcmp_mask = '1;
@@ -173,8 +174,12 @@ module execute (
          case (w_funct7)
            `VECR_DOTV: ;
            `VECR_MULV: begin
-               w_vram_wdata <= w_vmul_res;
+               w_vram_wdata <= w_vmul_mul;
                w_vram_we <= 1;
+           end
+           `VECR_ADDV: begin
+              w_vram_wdata <= w_vmul_add;
+              w_vram_we <= 1;
            end
            `VECR_CMPV, `VECR_CMPMV:  ;
            `VECR_MOVV, `VECR_MOVMV: begin
@@ -200,7 +205,7 @@ module execute (
       case (w_funct7)
          `VECR_DOTV:
             X[w_rd] <= w_vmul_dot;
-         `VECR_MULV:  ;
+         `VECR_MULV, `VECR_ADDV:  ;
          `VECR_CMPV, `VECR_CMPMV:
             r_vcmp_mask <= w_vcmp_mask_res;
          `VECR_MOVV, `VECR_MOVMV: ;
@@ -522,7 +527,8 @@ module execute (
      .i_vec_b(w_vram_rdata2),
 
      .o_dot(w_vmul_dot),
-     .o_vec_c(w_vmul_res)
+     .o_vec_mul(w_vmul_mul),
+     .o_vec_add(w_vmul_add)
    );
 
    vec_cmp #(
