@@ -38,10 +38,25 @@ start:
   lv v28, x1, l3-data+64
 
   # Feed forward
-  lv v1, x1, iris1-data
+  lv v1, x1, iris3-data
 
-  # Input -> First layer
-  mulmv v1, v2, v1 # MULMV v1=(v2:v17)*v1
+  # Input -> Layer 0
+  mulmv v1, v2, v1 # MULMV v1=(v2:v9)*v1
+  ltv v1, v0
+  movmv v1, v0
+
+  # Layer 1 -> Layer 2
+  mulmv v1, v10, v1 # MULMV v1=(v10:v17)*v1
+  ltv v1, v0
+  movmv v1, v0
+
+  # Layer 2 -> Layer 3
+  mulmv v1, v18, v1 # MULMV v1=(v18:v25)*v1
+  ltv v1, v0
+  movmv v1, v0
+
+  # Layer 3 -> Out
+  mulmv v1, v26, v1 # MULMV v1=(v26:v28)*v1
   ltv v1, v0
   movmv v1, v0
 
@@ -83,3 +98,7 @@ dat 0x017af50e, 0x05310000, 0xf986f6f5, 0x0005fb5b, 0x00000000, 0x00000000, 0x00
 dat 0xf871054f, 0x02450000, 0x079af899, 0x00040b7a, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 iris1:
 dat 0x046a066e, 0x004101c4, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+iris2:
+dat 0x02d605de, 0x01780467, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
+iris3:
+dat 0x02cf0586, 0x01af04c6, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000

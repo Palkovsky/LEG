@@ -26,7 +26,7 @@ module vec_ram #(
    logic [VEC_INDEX_WIDTH:0]        r_addr_b;
 
    initial begin
-      for(int i = 0; i < (1<<VEC_INDEX_WIDTH)-1; i++) begin
+      for(int i = 0; i < (1<<VEC_INDEX_WIDTH); i++) begin
          mem[i] <= 0;
       end
    end
