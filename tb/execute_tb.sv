@@ -986,6 +986,7 @@ module execute_tb;
       .i_rst(rst),
 
       .i_inst(inst),
+      .i_inst_valid(1),
 
       .o_addr(addr),
 

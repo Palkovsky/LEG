@@ -6,6 +6,7 @@ module execute (
 
   // Instruction
   input [31:0]                 i_inst,
+  input                        i_inst_valid,
 
   // Memory interface
   output reg [31:0]            o_addr = 0,
@@ -152,52 +153,54 @@ module execute (
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
 
-      // Vector mask
-      case ({w_opcode, w_funct7})
-         { `OP_VEC_R, `VECR_CMPMV },
-         { `OP_VEC_R, `VECR_MOVMV }:
-            w_vcmp_mask_arg <= r_vcmp_mask;
-         default:
-            w_vcmp_mask_arg <= '1;
-      endcase
+      if (i_inst_valid) begin
+         // Vector mask
+         case ({w_opcode, w_funct7})
+           { `OP_VEC_R, `VECR_CMPMV },
+           { `OP_VEC_R, `VECR_MOVMV }:
+             w_vcmp_mask_arg <= r_vcmp_mask;
+           default:
+             w_vcmp_mask_arg <= '1;
+         endcase
 
-      if (w_opcode == `OP_VEC_I) begin
-         w_vram_wdata <= r_vec_tmp;
-         case (w_funct3)
-            `VECI_LV:
-               w_vram_we <= (r_vec_counter >= 8);
-            `VECI_SV:
-               w_vram_raddr1 <= w_rd;
-         endcase
-      end
-      else if (w_opcode == `OP_VEC_R) begin
-         case (w_funct7)
-           `VECR_DOTV: ;
-           `VECR_MULV: begin
-               w_vram_wdata <= w_vmul_mul;
-               w_vram_we <= 1;
-           end
-           `VECR_ADDV: begin
-              w_vram_wdata <= w_vmul_add;
-              w_vram_we <= 1;
-           end
-           `VECR_CMPV, `VECR_CMPMV:  ;
-           `VECR_MOVV, `VECR_MOVMV: begin
-              w_vram_waddr <= w_rd;
-              w_vram_raddr2 <= w_rd;
-              w_vram_we <= 1;
-              for (int i = 0; i < 16; i++) begin
-               w_vram_wdata[i] <= w_vcmp_mask_arg[i] ? w_vram_rdata1[i] : w_vram_rdata2[i];
+         if (w_opcode == `OP_VEC_I) begin
+            w_vram_wdata <= r_vec_tmp;
+            case (w_funct3)
+              `VECI_LV:
+                w_vram_we <= (r_vec_counter >= 8);
+              `VECI_SV:
+                w_vram_raddr1 <= w_rd;
+            endcase
+         end
+         else if (w_opcode == `OP_VEC_R) begin
+            case (w_funct7)
+              `VECR_DOTV: ;
+              `VECR_MULV: begin
+                 w_vram_wdata <= w_vmul_mul;
+                 w_vram_we <= 1;
               end
-           end
-           `VECR_MULMV: begin
-              w_vram_raddr1 <= w_rs1 + r_vec_counter;
-              w_vram_raddr2 <= w_rs2;
-              w_vram_waddr <= w_rd;
-              w_vram_wdata <= r_vec_tmp16;
-              w_vram_we <= (r_vec_counter == `VEC_DIM);
-           end
-         endcase
+              `VECR_ADDV: begin
+                 w_vram_wdata <= w_vmul_add;
+                 w_vram_we <= 1;
+              end
+              `VECR_CMPV, `VECR_CMPMV:  ;
+              `VECR_MOVV, `VECR_MOVMV: begin
+                 w_vram_waddr <= w_rd;
+                 w_vram_raddr2 <= w_rd;
+                 w_vram_we <= 1;
+                 for (int i = 0; i < 16; i++) begin
+                    w_vram_wdata[i] <= w_vcmp_mask_arg[i] ? w_vram_rdata1[i] : w_vram_rdata2[i];
+                 end
+              end
+              `VECR_MULMV: begin
+                 w_vram_raddr1 <= w_rs1 + r_vec_counter;
+                 w_vram_raddr2 <= w_rs2;
+                 w_vram_waddr <= w_rd;
+                 w_vram_wdata <= r_vec_tmp16;
+                 w_vram_we <= (r_vec_counter == `VEC_DIM);
+              end
+            endcase
+         end
       end
    end
 
@@ -483,22 +486,24 @@ module execute (
       else begin
          r_cycle <= (r_last_cycle) ? 0 : r_cycle+1;
 
-         case(w_opcode)
-           // Standard opcodes
-           `LOAD:   LOAD_SEQ();
-           `STORE:  STORE_SEQ();
-           `OP_IMM: OP_IMM_SEQ();
-           `LUI:    LUI_SEQ();
-           `AUIPC:  AUIPC_SEQ();
-           `OP_REG: OP_REG_SEQ();
-           `JAL:    JAL_SEQ();
-           `JALR:   JALR_SEQ();
-           `BRANCH: BRANCH_SEQ();
-           // Custom opcodes
-           `OP_VEC_I: VECI_SEQ();
-           `OP_VEC_R: VECR_SEQ();
-           `NOP: ;
-         endcase
+         if (i_inst_valid) begin
+            case(w_opcode)
+              // Standard opcodes
+              `LOAD:   LOAD_SEQ();
+              `STORE:  STORE_SEQ();
+              `OP_IMM: OP_IMM_SEQ();
+              `LUI:    LUI_SEQ();
+              `AUIPC:  AUIPC_SEQ();
+              `OP_REG: OP_REG_SEQ();
+              `JAL:    JAL_SEQ();
+              `JALR:   JALR_SEQ();
+              `BRANCH: BRANCH_SEQ();
+              // Custom opcodes
+              `OP_VEC_I: VECI_SEQ();
+              `OP_VEC_R: VECR_SEQ();
+              `NOP: ;
+            endcase
+         end
       end
    end
 
