@@ -153,14 +153,15 @@ module execute (
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
 
+		// Default mask
+      w_vcmp_mask_arg <= '1;
+
       if (i_inst_valid) begin
          // Vector mask
          case ({w_opcode, w_funct7})
            { `OP_VEC_R, `VECR_CMPMV },
            { `OP_VEC_R, `VECR_MOVMV }:
              w_vcmp_mask_arg <= r_vcmp_mask;
-           default:
-             w_vcmp_mask_arg <= '1;
          endcase
 
          if (w_opcode == `OP_VEC_I) begin

@@ -1,16 +1,24 @@
 `include "common.svh"
 
 module LEG(
-  input  i_clk,
-  input  i_rst,
+  input        i_clk,
+  input        i_rst,
 
   // UART
-  input  rx,
-  output tx,
+  input        rx,
+  output       tx,
+
+  // 7-segment displays
+  output [6:0] o_d1,
+  output [6:0] o_d2,
+  output [6:0] o_d3,
+  output [6:0] o_d4,
+  output [6:0] o_d5,
+  output [6:0] o_d6,
 
   // Error signals
-  output o_invalid_inst,
-  output o_invalid_addr
+  output       o_invalid_inst,
+  output       o_invalid_addr
 );
 
    // CPU bus
@@ -71,6 +79,20 @@ module LEG(
       .i_rd_ready(uart_rd_ready)
      );
 
+   // Register to show on 7-segment display
+   reg [7:0]                 hex_display_regs [2:0] = '{ 0, 0, 0 };
+
+   display_controller display
+     (
+      .i_regs(hex_display_regs),
+      .o_d1(o_d1),
+      .o_d2(o_d2),
+      .o_d3(o_d3),
+      .o_d4(o_d4),
+      .o_d5(o_d5),
+      .o_d6(o_d6)
+     );
+
    // MMIO
    wire [31:0]            mmio_addr;
    // Writing
@@ -82,6 +104,18 @@ module LEG(
    reg                    mmio_rd_valid = 0;
    wire                   mmio_rd_ready;
 
+   // Sequential part of MMIO
+   always @(posedge i_clk) begin
+      case (mmio_addr[15:0])
+        'hFFF0, 'hFFF1, 'hFFF2: begin
+           if (mmio_wr_valid) begin
+              hex_display_regs[mmio_addr[3:0]] <= mmio_data_out[7:0];
+           end
+        end
+      endcase
+   end
+
+   // Comb part of MMIO
    always_comb begin
       {
        mmio_data_in,
@@ -117,6 +151,16 @@ module LEG(
            if (mmio_rd_ready) begin
               mmio_rd_valid <= 1;
               mmio_data_in <= uart_rx_present;
+           end
+        end
+        // Output 32-bit register into 8 7-segment screens
+        'hFFF0, 'hFFF1, 'hFFF2: begin
+           if (mmio_wr_valid) begin
+              mmio_wr_ready <= 1;
+           end
+           if (mmio_rd_ready) begin
+              mmio_data_in <= hex_display_regs[mmio_addr[3:0]];
+              mmio_rd_valid <= 1;
            end
         end
       endcase

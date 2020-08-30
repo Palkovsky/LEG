@@ -82,6 +82,7 @@ set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
+set_global_assignment -name SYSTEMVERILOG_FILE src/display.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/vec_cmp.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/vec_mul.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/vec_ram.sv
@@ -95,4 +96,46 @@ set_global_assignment -name SYSTEMVERILOG_FILE src/execute.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/core.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/bram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/alu.sv
+set_location_assignment PIN_C14 -to o_d1[0]
+set_location_assignment PIN_E15 -to o_d1[1]
+set_location_assignment PIN_C15 -to o_d1[2]
+set_location_assignment PIN_C16 -to o_d1[3]
+set_location_assignment PIN_E16 -to o_d1[4]
+set_location_assignment PIN_D17 -to o_d1[5]
+set_location_assignment PIN_C17 -to o_d1[6]
+set_location_assignment PIN_C18 -to o_d2[0]
+set_location_assignment PIN_D18 -to o_d2[1]
+set_location_assignment PIN_E18 -to o_d2[2]
+set_location_assignment PIN_B16 -to o_d2[3]
+set_location_assignment PIN_A17 -to o_d2[4]
+set_location_assignment PIN_A18 -to o_d2[5]
+set_location_assignment PIN_B17 -to o_d2[6]
+set_location_assignment PIN_E17 -to o_d4[6]
+set_location_assignment PIN_B20 -to o_d3[0]
+set_location_assignment PIN_A20 -to o_d3[1]
+set_location_assignment PIN_B19 -to o_d3[2]
+set_location_assignment PIN_A21 -to o_d3[3]
+set_location_assignment PIN_B21 -to o_d3[4]
+set_location_assignment PIN_C22 -to o_d3[5]
+set_location_assignment PIN_B22 -to o_d3[6]
+set_location_assignment PIN_F21 -to o_d4[0]
+set_location_assignment PIN_E22 -to o_d4[1]
+set_location_assignment PIN_E21 -to o_d4[2]
+set_location_assignment PIN_C19 -to o_d4[3]
+set_location_assignment PIN_C20 -to o_d4[4]
+set_location_assignment PIN_D19 -to o_d4[5]
+set_location_assignment PIN_F18 -to o_d5[0]
+set_location_assignment PIN_E20 -to o_d5[1]
+set_location_assignment PIN_E19 -to o_d5[2]
+set_location_assignment PIN_J18 -to o_d5[3]
+set_location_assignment PIN_H19 -to o_d5[4]
+set_location_assignment PIN_F19 -to o_d5[5]
+set_location_assignment PIN_F20 -to o_d5[6]
+set_location_assignment PIN_J20 -to o_d6[0]
+set_location_assignment PIN_K20 -to o_d6[1]
+set_location_assignment PIN_L18 -to o_d6[2]
+set_location_assignment PIN_N18 -to o_d6[3]
+set_location_assignment PIN_M20 -to o_d6[4]
+set_location_assignment PIN_N19 -to o_d6[5]
+set_location_assignment PIN_N20 -to o_d6[6]
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

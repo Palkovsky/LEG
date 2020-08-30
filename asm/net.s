@@ -73,6 +73,22 @@ start:
   ltv v1, v0
   movmv v1, v0
 
+  # Write someting to hex display
+  addi x31, x0, -16 # x31 = 0xFFFFFFF0
+
+  lui x2, 0x12345
+  addi x2, x2, 0x678
+
+  # 1st panel
+  sb x2, x31, 0
+  srai x2, x2, 8
+  # 2nd panel
+  sb x2, x31, 1
+  srai x2, x2, 8
+  # 3rd panel
+  sb x2, x31, 2
+  srai x2, x2, 8
+
 loop:
   jal x0, loop
 
