@@ -153,7 +153,7 @@ module execute (
       w_vram_raddr1 <= w_rs1;
       w_vram_raddr2 <= w_rs2;
 
-		// Default mask
+    // Default mask
       w_vcmp_mask_arg <= '1;
 
       if (i_inst_valid) begin
@@ -487,24 +487,22 @@ module execute (
       else begin
          r_cycle <= (r_last_cycle) ? 0 : r_cycle+1;
 
-         if (i_inst_valid) begin
-            case(w_opcode)
-              // Standard opcodes
-              `LOAD:   LOAD_SEQ();
-              `STORE:  STORE_SEQ();
-              `OP_IMM: OP_IMM_SEQ();
-              `LUI:    LUI_SEQ();
-              `AUIPC:  AUIPC_SEQ();
-              `OP_REG: OP_REG_SEQ();
-              `JAL:    JAL_SEQ();
-              `JALR:   JALR_SEQ();
-              `BRANCH: BRANCH_SEQ();
-              // Custom opcodes
-              `OP_VEC_I: VECI_SEQ();
-              `OP_VEC_R: VECR_SEQ();
-              `NOP: ;
-            endcase
-         end
+         case(w_opcode)
+           // Standard opcodes
+           `LOAD:   LOAD_SEQ();
+           `STORE:  STORE_SEQ();
+           `OP_IMM: OP_IMM_SEQ();
+           `LUI:    LUI_SEQ();
+           `AUIPC:  AUIPC_SEQ();
+           `OP_REG: OP_REG_SEQ();
+           `JAL:    JAL_SEQ();
+           `JALR:   JALR_SEQ();
+           `BRANCH: BRANCH_SEQ();
+           // Custom opcodes
+           `OP_VEC_I: VECI_SEQ();
+           `OP_VEC_R: VECR_SEQ();
+           `NOP: ;
+         endcase
       end
    end
 

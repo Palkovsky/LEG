@@ -304,6 +304,14 @@ while read -r LINE; do
             r_src=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
             code=$(hexinst $(s_inst $offset $r_src $r_base ${STORE_FUNCT3["$(a0)"]} ${OPS["STORE"]}))
             ;;
+        j)
+            # J label
+            assert_len 2 ; assert islabel $(a1) ; assert_valid_label $(a1)
+            r_dest=0 ; addr=${LABELS[$(a1)]}
+            # TODO: Might wanna check if offset is multiple of two
+            offset=$(( $addr-$ORG )) ; assert_range -1048576 1048575 $offset
+            code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
+            ;;
         jal)
             # JAL xA, label
             assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
@@ -311,6 +319,13 @@ while read -r LINE; do
             # TODO: Might wanna check if offset is multiple of two
             offset=$(( $addr-$ORG )) ; assert_range -1048576 1048575 $offset
             code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
+            ;;
+        jr)
+            # JR x, imm12
+            assert_gte 3 ; assert isxreg $(a1)
+            offset=$(imm_rest 2) ; assert_range -2048 2047 $offset
+            r_dest=0 ; r_base=$(xreg_to_num $(a1))
+            code=$(hexinst $(i_inst $offset $r_base 0 $r_dest ${OPS["JALR"]}))
             ;;
         jalr)
             # JALR xA, xB, imm12
