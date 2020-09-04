@@ -82,20 +82,6 @@ set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_NEAR_END_VMEAS "HALF VCCIO" -fall
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -rise
 set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -fall
-set_global_assignment -name SYSTEMVERILOG_FILE src/display.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/vec_cmp.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/vec_mul.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/vec_ram.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/uartwriter.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/uart.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/memmap.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/LEG.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/fifo.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/fetch.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/execute.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/core.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/bram.sv
-set_global_assignment -name SYSTEMVERILOG_FILE src/alu.sv
 set_location_assignment PIN_C14 -to o_d1[0]
 set_location_assignment PIN_E15 -to o_d1[1]
 set_location_assignment PIN_C15 -to o_d1[2]
@@ -138,4 +124,35 @@ set_location_assignment PIN_N18 -to o_d6[3]
 set_location_assignment PIN_M20 -to o_d6[4]
 set_location_assignment PIN_N19 -to o_d6[5]
 set_location_assignment PIN_N20 -to o_d6[6]
+set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE SPEED
+set_global_assignment -name PHYSICAL_SYNTHESIS_COMBO_LOGIC ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_DUPLICATION ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_REGISTER_RETIMING ON
+set_global_assignment -name ROUTER_LCELL_INSERTION_AND_LOGIC_DUPLICATION ON
+set_global_assignment -name ROUTER_TIMING_OPTIMIZATION_LEVEL MAXIMUM
+set_global_assignment -name QII_AUTO_PACKED_REGISTERS NORMAL
+set_global_assignment -name FITTER_EFFORT "STANDARD FIT"
+set_global_assignment -name ROUTER_CLOCKING_TOPOLOGY_ANALYSIS ON
+set_global_assignment -name PHYSICAL_SYNTHESIS_ASYNCHRONOUS_SIGNAL_PIPELINING ON
+set_global_assignment -name ADV_NETLIST_OPT_SYNTH_WYSIWYG_REMAP ON
+set_global_assignment -name MUX_RESTRUCTURE OFF
+set_global_assignment -name SYSTEMVERILOG_FILE src/cpu.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/display.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/vec_cmp.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/vec_mul.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/vec_ram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/uartwriter.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/uart.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/memmap.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/LEG.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/fifo.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/fetch.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/execute.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/core.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/bram.sv
+set_global_assignment -name SYSTEMVERILOG_FILE src/alu.sv
+set_global_assignment -name SDC_FILE leg.sdc
+set_global_assignment -name SDC_FILE LEG.sdc
+set_global_assignment -name QIP_FILE src/pll.qip
+set_global_assignment -name SOURCE_FILE db/LEG.cmp.rdb
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

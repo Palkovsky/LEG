@@ -3,7 +3,7 @@
 
 `timescale 1ns/1ns
 
-module LEG_tb;
+module cpu_tb;
    localparam integer clk_period = 10;
 
    reg                clk = 0;
@@ -36,7 +36,7 @@ module LEG_tb;
       clk = !clk;
    end
 
-   LEG leg
+   cpu leg
      (
       .i_clk(clk),
       .i_rst(rst),
