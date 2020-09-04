@@ -139,7 +139,7 @@ module execute (
       if (o_wr_valid && i_wr_ready && r_vec_counter < 8)
          r_vec_counter <= r_vec_counter + 1;
 
-      if (r_vec_counter >= 8)
+      if (r_vec_counter >= 7)
          r_vec_counter <= 0;
    endtask
 
@@ -270,7 +270,7 @@ module execute (
          { `OP_VEC_I, `VECI_LV, {7{1'b?}} }:
             r_last_cycle <= r_vec_counter == `VEC_DIM / 2 + 1;
          { `OP_VEC_I, `VECI_SV, {7{1'b?}} }:
-            r_last_cycle <= r_vec_counter == `VEC_DIM / 2;
+            r_last_cycle <= r_vec_counter == `VEC_DIM / 2 - 1;
          { `OP_VEC_R, {3{1'b?}}, `VECR_MULMV}:
             r_last_cycle <= r_vec_counter > `VEC_DIM;
          default:

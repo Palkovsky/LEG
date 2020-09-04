@@ -79,7 +79,7 @@ module cpu(
      );
 
    // Register to show on 7-segment display
-   reg [7:0]                 hex_display_regs [2:0] = '{ 8'hCC, 8'hCD, 8'hDC };
+   reg [7:0]                 hex_display_regs [2:0] = '{ 0, 0, 0 };
 
    display_controller display
      (

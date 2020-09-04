@@ -127,7 +127,6 @@ res_ret:
 
 res_vec:
 dat 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
-dat 0, 0, 0, 0 # sv's broken, this is to prevent it from overriding correct_results
 correct_results:
 dat 0
 
