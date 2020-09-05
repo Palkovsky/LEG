@@ -33,20 +33,20 @@ module vec_cmp #(
       `VEC_LE: begin
         for (int i = 0; i < VEC_SIZE; i++) begin
           o_mask[i] <= (i_mask[i] && $signed(i_vec_a[i]) <= $signed(i_vec_b[i]));
-        end    
-      end  
+        end
+      end
       `VEC_GT: begin
         for (int i = 0; i < VEC_SIZE; i++) begin
           o_mask[i] <= (i_mask[i] && $signed(i_vec_a[i]) > $signed(i_vec_b[i]));
         end
-      end      
+      end
       `VEC_GE: begin
         for (int i = 0; i < VEC_SIZE; i++) begin
           o_mask[i] <= (i_mask[i] && $signed(i_vec_a[i]) >= $signed(i_vec_b[i]));
         end
       end
       default:
-        o_mask <= 0;   
+        o_mask <= 0;
     endcase
   end
 

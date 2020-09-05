@@ -13,6 +13,7 @@ module vec_mul #(
 
    // Elementwise multiplication
    always_comb begin
+      //o_vec_mul <= i_vec_a[0];
       for (int i = 0; i < VEC_SIZE; i++) begin
          o_vec_mul[i] <= fixpoint_mul(i_vec_a[i], i_vec_b[i]);
       end
@@ -20,6 +21,7 @@ module vec_mul #(
 
    // Elementwise addition
    always_comb begin
+      //o_vec_add <= i_vec_a[0];
       for (int i = 0; i < VEC_SIZE; i++) begin
          o_vec_add[i] <= fixpoint_add(i_vec_a[i], i_vec_b[i]);
       end

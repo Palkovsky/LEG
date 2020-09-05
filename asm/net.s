@@ -91,10 +91,6 @@ loop:
   # Write correct result count to hex display
   lw x2, x0, correct_results
   sb x2, x1, 0
-  srli x2, x2, 8
-  sb x2, x1, 1
-  srli x2, x2, 8
-  sb x2, x1, 2
 
 halt:
   jal x0, halt
@@ -106,7 +102,7 @@ check_result:
   addi x5, x0, -1 # x5 <- maximal element
   lui x6, 0  # x6 <- maximal index
   addi x7, x0, 3
-  addi x9, x0, res_vec        
+  addi x9, x0, res_vec
 
 res_loop:
   bge x4, x7, res_loop_end
@@ -117,7 +113,7 @@ res_loop:
   add x6, x0, x4
 res_skip:
   addi x4, x4, 1
-  addi x9, x9, 2      
+  addi x9, x9, 2
   j res_loop
 
 res_loop_end:
@@ -131,7 +127,6 @@ res_ret:
 
 res_vec:
 dat 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
-dat 0, 0, 0, 0 # sv's broken, this is to prevent it from overriding correct_results
 correct_results:
 dat 0
 
@@ -370,4 +365,11 @@ dat 0x019202de, 0x0110027f
 dat 0x018502fd, 0x00e90295
 
 iris_x_end:
-dat 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0
+dat 0, 0, 0, 0

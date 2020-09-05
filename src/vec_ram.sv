@@ -1,3 +1,4 @@
+
 module vec_ram #(
   VEC_SIZE,
   VEC_INDEX_WIDTH
@@ -20,7 +21,7 @@ module vec_ram #(
   input logic [15:0][VEC_SIZE-1:0]  i_write_data
 );
 
-   logic [16 * VEC_SIZE - 1:0]      mem [0:(1<<VEC_INDEX_WIDTH)-1];
+   (* romstyle = "logic" *) logic [16 * VEC_SIZE - 1:0]      mem [0:(1<<VEC_INDEX_WIDTH)-1];
 
    logic [VEC_INDEX_WIDTH:0]        r_addr_a;
    logic [VEC_INDEX_WIDTH:0]        r_addr_b;
