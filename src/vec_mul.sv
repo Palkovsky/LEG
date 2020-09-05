@@ -27,11 +27,16 @@ module vec_mul #(
 
    // DOT product
    always_comb begin
-      automatic logic[`FIXPOINT_WIDTH - 1:0] res = 0;
+      automatic logic[`FIXPOINT_WIDTH - 1:0] res[0:VEC_SIZE - 1];
       for (int i = 0; i < VEC_SIZE; i++) begin
-         res = fixpoint_add(res, o_vec_mul[i]);
+         res[i] = o_vec_mul[i];
       end
-      o_dot <= res;
+      for (int l = 1; l < VEC_SIZE; l *= 2) begin
+         for (int i = 0; i < VEC_SIZE; i += 2 * l) begin
+            res[i] = fixpoint_add(res[i], res[i + l]);
+         end
+      end
+      o_dot <= res[0];
    end
 
 endmodule
