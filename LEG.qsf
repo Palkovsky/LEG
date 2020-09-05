@@ -151,7 +151,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE src/execute.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/core.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/bram.sv
 set_global_assignment -name SYSTEMVERILOG_FILE src/alu.sv
-set_global_assignment -name SDC_FILE leg.sdc
 set_global_assignment -name SDC_FILE LEG.sdc
 set_global_assignment -name QIP_FILE src/pll.qip
 set_global_assignment -name SOURCE_FILE db/LEG.cmp.rdb

@@ -55,6 +55,9 @@ module execute (
    // 32 32-bit scalar registers
    reg [31:0]                 X[0:31] = '{ 32{32'b0} };
 
+   logic [31:0]                X_rs1;
+   logic [31:0]                X_rs2;
+
    // ALU
    reg [31:0]                r_alu_op1;
    reg [31:0]                r_alu_op2;
@@ -97,19 +100,41 @@ module execute (
     */
    reg                        mem_transfer_done;
 
+   task SAVE_INT_RESULT(logic[31:0] value);
+      if (w_rd != 0) begin
+         X[w_rd] <= value;
+      end
+   endtask
+
+   always_comb begin
+      if (w_rs1 == 0) begin
+         X_rs1 <= 0;
+      end
+      else begin
+         X_rs1 <= X[w_rs1];
+      end
+
+      if (w_rs2 == 0) begin
+         X_rs2 <= 0;
+      end
+      else begin
+         X_rs2 <= X[w_rs2];
+      end
+   end
+
    task LOAD_SEQ();
       if (o_rd_ready && i_rd_valid) begin
          case (w_funct3)
            `LBU:
-             X[w_rd] <= { 24'b0, i_data[7:0] };
+             SAVE_INT_RESULT({ 24'b0, i_data[7:0] });
            `LB:
-             X[w_rd] <= { {24{i_data[7]}}, i_data[7:0] };
+             SAVE_INT_RESULT({ {24{i_data[7]}}, i_data[7:0] });
            `LHU:
-             X[w_rd] <= { 16'b0, i_data[15:0] };
+             SAVE_INT_RESULT({ 16'b0, i_data[15:0] });
            `LH:
-             X[w_rd] <= { {16{i_data[15]}}, i_data[15:0] };
+             SAVE_INT_RESULT({ {16{i_data[15]}}, i_data[15:0] });
            `LW:
-             X[w_rd] <= i_data[31:0];
+             SAVE_INT_RESULT(i_data[31:0]);
          endcase
       end
    endtask
@@ -208,7 +233,7 @@ module execute (
    task VECR_SEQ();
       case (w_funct7)
          `VECR_DOTV:
-            X[w_rd] <= w_vmul_dot;
+            SAVE_INT_RESULT(w_vmul_dot);
          `VECR_MULV, `VECR_ADDV:  ;
          `VECR_CMPV, `VECR_CMPMV:
             r_vcmp_mask <= w_vcmp_mask_res;
@@ -239,7 +264,7 @@ module execute (
             mem_transfer_done <= (o_wr_valid && i_wr_ready);
             o_wr_valid <= 1;
             o_addr <= r_alu_result;
-            o_data <= X[w_rs2];
+            o_data <= X_rs2;
          end
          { `LOAD, 3'b??? }: begin
             mem_transfer_done <= (i_rd_valid && o_rd_ready);
@@ -299,14 +324,14 @@ module execute (
       case (w_opcode)
         `LOAD: begin
            r_alu_operation <= `ALU_ADD;
-           r_alu_op1 <= X[w_rs1]; // base address
+           r_alu_op1 <= X_rs1; // base address
            r_alu_op2 <= w_I;      // imm offset
         end
         `OP_VEC_I: begin
            case (w_funct3)
              `VECI_LV, `VECI_SV: begin
                 r_alu_operation <= `ALU_ADD;
-                r_alu_op1 <= X[w_rs1]; // base address
+                r_alu_op1 <= X_rs1; // base address
                 r_alu_op2 <= w_I;      // imm offset
                 r_alu_op3 <= r_vec_counter * 4;
              end
@@ -314,7 +339,7 @@ module execute (
          end
         `STORE: begin
            r_alu_operation <= `ALU_ADD;
-           r_alu_op1 <= X[w_rs1];
+           r_alu_op1 <= X_rs1;
            r_alu_op2 <= w_S;
         end
         `BRANCH: begin
@@ -329,7 +354,7 @@ module execute (
         end
         `JALR: begin
            r_alu_operation <= `ALU_ADD;
-           r_alu_op1 <= X[w_rs1];
+           r_alu_op1 <= X_rs1;
            r_alu_op2 <= w_I_se;
         end
         `AUIPC: begin
@@ -338,7 +363,7 @@ module execute (
            r_alu_op2 <= { w_U, 12'b0 };
         end
         `OP_IMM: begin
-           r_alu_op1 <= X[w_rs1];
+           r_alu_op1 <= X_rs1;
            r_alu_op2 <= w_I_se;
            case (w_funct3)
              `ADDI: r_alu_operation <= `ALU_ADD;
@@ -363,8 +388,8 @@ module execute (
            endcase
         end
         `OP_REG: begin
-           r_alu_op1 <= X[w_rs1];
-           r_alu_op2 <= X[w_rs2];
+           r_alu_op1 <= X_rs1;
+           r_alu_op2 <= X_rs2;
            case(w_funct3)
              `ADD, `SUB: begin
                 if (w_funct7 == 7'b0000000)
@@ -400,22 +425,22 @@ module execute (
     * ========= REGISTER-IMM INSTRUCTIONS
     */
    task OP_IMM_SEQ();
-      X[w_rd] <= r_alu_result;
+      SAVE_INT_RESULT(r_alu_result);
    endtask
 
    task LUI_SEQ();
-      X[w_rd] <= { w_U, 12'b0 };
+      SAVE_INT_RESULT({ w_U, 12'b0 });
    endtask
 
    task AUIPC_SEQ();
-      X[w_rd] <= r_alu_result;
+      SAVE_INT_RESULT(r_alu_result);
    endtask
 
    /*
     * ========= REGISTER-REGISTER INSTRUCTIONS
     */
    task OP_REG_SEQ();
-      X[w_rd] <= r_alu_result;
+      SAVE_INT_RESULT(r_alu_result);
    endtask
 
    /*
@@ -437,27 +462,27 @@ module execute (
         `BRANCH: begin
            o_pc_change <= 0;
            case (w_funct3)
-             `BEQ: if (X[w_rs1] == X[w_rs2]) begin
+             `BEQ: if (X_rs1 == X_rs2) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BNE: if (X[w_rs1] != X[w_rs2]) begin
+             `BNE: if (X_rs1 != X_rs2) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BLT: if ($signed(X[w_rs1]) < $signed(X[w_rs2])) begin
+             `BLT: if ($signed(X_rs1) < $signed(X_rs2)) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BLTU: if (X[w_rs1] < X[w_rs2]) begin
+             `BLTU: if (X_rs1 < X_rs2) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BGE: if ($signed(X[w_rs1]) > $signed(X[w_rs2])) begin
+             `BGE: if ($signed(X_rs1) > $signed(X_rs2)) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BGEU: if (X[w_rs1] > X[w_rs2]) begin
+             `BGEU: if (X_rs1 > X_rs2) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
@@ -468,13 +493,11 @@ module execute (
    end
 
    task JAL_SEQ();
-      if (w_rd != 0)
-        X[w_rd] <= i_pc+4;
+      SAVE_INT_RESULT(i_pc+4);
    endtask
 
    task JALR_SEQ();
-      if (w_rd != 0)
-        X[w_rd] <= i_pc+4;
+      SAVE_INT_RESULT(i_pc+4);
    endtask
 
    task BRANCH_SEQ();
