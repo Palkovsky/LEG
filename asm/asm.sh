@@ -9,6 +9,16 @@ kaput() {
 # Read either from file or stdin
 [ "$#" -eq 1 ] && TEXT=$(cat $1) || TEXT=$(cat)
 
+declare -A REGS=( \
+  ["zero"]=0 ["ra"]=1 ["sp"]=2 ["gp"]=3 ["tp"]=4
+  ["t0"]=5 ["t1"]=6 ["t7"]=7
+  ["s0"]=8 ["fp"]=8 ["s1"]=9
+  ["a0"]=10 ["a1"]=11 ["a2"]=12 ["a3"]=13 ["a4"]=14 ["a5"]=15 ["a6"]=16 ["a7"]=17
+  ["s2"]=18 ["s3"]=19 ["s4"]=20 ["s5"]=21 ["s6"]=22
+  ["s7"]=23 ["s8"]=24 ["s9"]=25 ["s10"]=26 ["s11"]=27
+  ["t3"]=28 ["t4"]=29 ["t5"]=30 ["t6"]=31
+)
+
 # Generate LINEes
 LINES=$(echo "$TEXT" |
     # Remove comments, starting and trailing spaces, empty lines, merge multiple spaces into one
@@ -25,7 +35,7 @@ LINES=$(echo "$TEXT" |
 
 # Predicates
 isxreg() {
-    [[ "$1" =~ ^x[0-9]+$ ]]
+    [[ "$1" =~ ^x[0-9]+$ ]] || [[ -n "${REGS[$1]}" ]]
 }
 isvreg() {
     [[ "$1" =~ ^v[0-9]+$ ]]
@@ -190,7 +200,12 @@ hexinst() {
     printf "%08x" "$1"
 }
 xreg_to_num() {
-    echo "$(echo $1 | cut -c 2-)"
+    if [[ -n "${REGS[$1]}" ]]
+    then
+        echo "${REGS[$1]}"
+    else
+        echo "$(echo $1 | cut -c 2-)"
+    fi
 }
 vreg_to_num() {
     echo "$(echo $1 | cut -c 2-)"
