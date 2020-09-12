@@ -1,6 +1,7 @@
 #!/bin/bash
 trap "exit 1" 10
 PROC="$$"
+DIR=$( dirname "${BASH_SOURCE[0]}" )
 kaput() {
     echo "$@" >&2
     kill -10 $PROC
@@ -220,7 +221,7 @@ to_param_list () {
 imm_rest() {
     imm=$(a_rest $1)
     to_param_list list LABELS
-    out=$(./imm.sh ${list[@]} ${imm[@]})
+    out=$($DIR/imm.sh ${list[@]} ${imm[@]})
     [ $? -ne 0 ] && kaput "${INST[@]}: Unable to parse immediate '$imm'. Error: $out."
     echo "$out"
 }
@@ -271,6 +272,13 @@ while read -r LINE; do
             [ "$(a0)" == "slli" -o "$(a0)" == "srli" ] && imm=$(( $imm & 0x1F ))
             code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["$(a0)"]} $r_dest ${OPS["OPIMM"]}))
             ;;
+        mv)
+            # MV XA, XB = ADDI XA, XB, 0
+            assert_len 3 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            imm=0
+            r_dest=$(xreg_to_num $(a1)) ; r_src=$(xreg_to_num $(a2))
+            code=$(hexinst $(i_inst $imm $r_src ${OPIMM_FUNCT3["addi"]} $r_dest ${OPS["OPIMM"]}))
+            ;;
         srai)
             # srai xA, xB, imm12
             assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
@@ -298,6 +306,12 @@ while read -r LINE; do
             assert_len 4 ; assert isxreg $(a1) ; assert isxreg $(a2) ; assert isxreg $(a3)
             r_dest=$(xreg_to_num $(a1)) ; r_a=$(xreg_to_num $(a2)) ; r_b=$(xreg_to_num $(a3))
             code=$(hexinst $(r_inst 0 $r_b $r_a ${OP_FUNCT3["$(a0)"]} $r_dest ${OPS["OP"]}))
+            ;;
+        snez)
+            # SNEZ xDEST, xA = SLTU xDEST, x0, xA
+            assert_len 3 ; assert isxreg $(a1) ; assert isxreg $(a2)
+            r_dest=$(xreg_to_num $(a1)) ; r_a=0 ; r_b=$(xreg_to_num $(a2))
+            code=$(hexinst $(r_inst 0 $r_b $r_a ${OP_FUNCT3["sltu"]} $r_dest ${OPS["OP"]}))
             ;;
         sub | sra)
             # _ xDEST, xA, xB
@@ -328,26 +342,67 @@ while read -r LINE; do
             code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
             ;;
         jal)
-            # JAL xA, label
-            assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
-            r_dest=$(xreg_to_num $(a1)) ; addr=${LABELS[$(a2)]}
+            LEN="${#INST[@]}"
+            if [[ $LEN -eq 2 ]] # JAL label (rd default ra)
+            then
+                assert islabel $(a1) ; assert_valid_label $(a1)
+                r_dest=${REGS["ra"]} ; addr=${LABELS[$(a1)]}
+            elif [[ $LEN -eq 3 ]]
+            then
+                # JAL xA, label
+                assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
+                r_dest=$(xreg_to_num $(a1)) ; addr=${LABELS[$(a2)]}
+            else
+                kaput "'${INST[@]}': expected to have 2 or 3 elements, but it has $LEN"
+            fi
             # TODO: Might wanna check if offset is multiple of two
             offset=$(( $addr-$ORG )) ; assert_range -1048576 1048575 $offset
             code=$(hexinst $(j_inst $offset $r_dest ${OPS["JAL"]}))
             ;;
         jr)
-            # JR x, imm12
-            assert_gte 3 ; assert isxreg $(a1)
-            offset=$(imm_rest 2) ; assert_range -2048 2047 $offset
-            r_dest=0 ; r_base=$(xreg_to_num $(a1))
+            LEN="${#INST[@]}"
+            if [[ $LEN -eq 2 ]] # JR x (offset default 0)
+            then
+               assert isxreg $(a1)
+               offset=0
+               r_dest=0 ; r_base=$(xreg_to_num $(a1))
+            elif [[ $LEN -eq 3 ]] # JR x, imm12
+            then
+                assert isxreg $(a1)
+                offset=$(imm_rest 2) ; assert_range -2048 2047 $offset
+                r_dest=0 ; r_base=$(xreg_to_num $(a1))
+            else
+                kaput "'${INST[@]}': expected to have 2 or 3 elements, but it has $LEN"
+            fi
             code=$(hexinst $(i_inst $offset $r_base 0 $r_dest ${OPS["JALR"]}))
             ;;
         jalr)
-            # JALR xA, xB, imm12
-            assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
-            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
-            r_dest=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
+            LEN="${#INST[@]}"
+            if [[ $LEN -eq 2 ]] # JALR x (x_dest default ra, offset default 0)
+            then
+               assert isxreg $(a1)
+               offset=0
+               r_dest=${REGS["ra"]} ; r_base=$(xreg_to_num $(a1))
+            elif [[ $LEN -eq 2 ]] # JALR xA, xB (offset default 0)
+            then
+               assert isxreg $(a1) ; assert isxreg $(a2)
+               offset=0
+               r_dest=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
+            elif [[ $LEN -eq 4 ]] # JALR xA, xB, imm12
+            then
+                assert_gte 4 ; assert isxreg $(a1) ; assert isxreg $(a2)
+                offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+                r_dest=$(xreg_to_num $(a1)) ; r_base=$(xreg_to_num $(a2))
+            else
+                kaput "'${INST[@]}': expected to have 1 to 3 elements, but it has $LEN"
+            fi
             code=$(hexinst $(i_inst $offset $r_base 0 $r_dest ${OPS["JALR"]}))
+            ;;
+        ret)
+            # RET = JR ra
+            assert_len 1
+            r_base=${REGS["ra"]}
+            code=$(hexinst $(i_inst 0 $r_base 0 0 ${OPS["JALR"]}))
             ;;
         beq | bne | blt | bltu | bge | bgeu)
             # BRANCH xA, xB, label
