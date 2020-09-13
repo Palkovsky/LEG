@@ -12,8 +12,8 @@ typedef unsigned long uint32_t;
 #define CMD_LOAD 0x10
 #define CMD_START 0x20
 
-#define ERR_SUCCESS 0
-#define ERR_CHECKSUM 1
+#define ERR_SUCCESS 1
+#define ERR_CHECKSUM 2
 
 static void cmd_load();
 static void cmd_start();

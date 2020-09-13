@@ -7,12 +7,22 @@ kaput() {
     kill -10 $PROC
 }
 
+case $1 in
+    "--rom")
+        out_format=rom
+        shift
+        ;;
+    *)
+        out_format=send
+        ;;
+esac
+
 # Read either from file or stdin
 [ "$#" -eq 1 ] && TEXT=$(cat $1) || TEXT=$(cat)
 
 declare -A REGS=( \
   ["zero"]=0 ["ra"]=1 ["sp"]=2 ["gp"]=3 ["tp"]=4
-  ["t0"]=5 ["t1"]=6 ["t7"]=7
+  ["t0"]=5 ["t1"]=6 ["t2"]=7
   ["s0"]=8 ["fp"]=8 ["s1"]=9
   ["a0"]=10 ["a1"]=11 ["a2"]=12 ["a3"]=13 ["a4"]=14 ["a5"]=15 ["a6"]=16 ["a7"]=17
   ["s2"]=18 ["s3"]=19 ["s4"]=20 ["s5"]=21 ["s6"]=22
@@ -51,7 +61,7 @@ isnum() {
     isdec "$1" || ishex "$1"
 }
 islabel() {
-    [[ "$1" =~ ^[a-z]([a-z]|[0-9]|_)*$ ]]
+    [[ "$1" =~ ^[a-z.]([a-z]|[0-9]|_)*$ ]]
 }
 
 # Conversions
@@ -411,6 +421,20 @@ while read -r LINE; do
             offset=$(( $addr-$ORG )) ; assert_range -4096 4095 $offset
             code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["$(a0)"]} ${OPS["BRANCH"]}))
             ;;
+        beqz)
+            # BEQZ xA, label = BEQ xa, x0, label
+            assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
+            r_a=$(xreg_to_num $(a1)) ; r_b=0 ; addr=${LABELS[$(a2)]}
+            offset=$(( $addr-$ORG )) ; assert_range -4096 4095 $offset
+            code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["beq"]} ${OPS["BRANCH"]}))
+            ;;
+        bnez)
+            # BNEZ xA, label = BNE xa, x0, label
+            assert_len 3 ; assert isxreg $(a1) ; assert islabel $(a2) ; assert_valid_label $(a2)
+            r_a=$(xreg_to_num $(a1)) ; r_b=0 ; addr=${LABELS[$(a2)]}
+            offset=$(( $addr-$ORG )) ; assert_range -4096 4095 $offset
+            code=$(hexinst $(b_inst $offset $r_b $r_a ${BRANCH_FUNCT3["bne"]} ${OPS["BRANCH"]}))
+            ;;
         lv | sv)
             # {LV|SV} vX, rX, imm
             assert_gte 4 ; assert isvreg $(a1) ; assert isxreg $(a2)
@@ -480,6 +504,13 @@ while read -r LINE; do
             kaput "Invalid instruction '${INST[@]}'"
             ;;
     esac
-    [ -z "$code" ] || echo "mem[$(($ORG / 4))] = 'h$code; // ${INST[@]}"
+    case $out_format in
+        rom)
+            [ -z "$code" ] || echo "mem[$(($ORG / 4))] = 'h$code; // ${INST[@]}"
+            ;;
+        send)
+            [ -z "$code" ] || echo "$(hexinst $ORG):$code"
+            ;;
+    esac
     ORG=$NEXT_ORG
 done <<< "$LINES"

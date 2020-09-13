@@ -1,54 +1,60 @@
+org 0x1000
+
 start:
-  # x1=0x2000
-  lui x1, 2
+  addi sp, sp, -8
+  sw gp, sp, 0
+  sw ra, sp, 4
+  
+  # gp=0x2000  
+  lui gp, 2
 
   # Layer 0
-  lv v2, x1, l0-data+0
-  lv v3, x1, l0-data+32
-  lv v4, x1, l0-data+64
-  lv v5, x1, l0-data+96
-  lv v6, x1, l0-data+128
-  lv v7, x1, l0-data+160
-  lv v8, x1, l0-data+192
-  lv v9, x1, l0-data+224
+  lv v2, gp, l0-data+0
+  lv v3, gp, l0-data+32
+  lv v4, gp, l0-data+64
+  lv v5, gp, l0-data+96
+  lv v6, gp, l0-data+128
+  lv v7, gp, l0-data+160
+  lv v8, gp, l0-data+192
+  lv v9, gp, l0-data+224
 
   # Layer 1
-  lv v10, x1, l1-data+0
-  lv v12, x1, l1-data+64
-  lv v11, x1, l1-data+32
-  lv v13, x1, l1-data+96
-  lv v14, x1, l1-data+128
-  lv v15, x1, l1-data+160
-  lv v16, x1, l1-data+192
-  lv v17, x1, l1-data+224
+  lv v10, gp, l1-data+0
+  lv v12, gp, l1-data+64
+  lv v11, gp, l1-data+32
+  lv v13, gp, l1-data+96
+  lv v14, gp, l1-data+128
+  lv v15, gp, l1-data+160
+  lv v16, gp, l1-data+192
+  lv v17, gp, l1-data+224
 
   # Layer 2
-  lv v18, x1, l2-data+0
-  lv v19, x1, l2-data+32
-  lv v20, x1, l2-data+64
-  lv v21, x1, l2-data+96
-  lv v22, x1, l2-data+128
-  lv v23, x1, l2-data+160
-  lv v24, x1, l2-data+192
-  lv v25, x1, l2-data+224
+  lv v18, gp, l2-data+0
+  lv v19, gp, l2-data+32
+  lv v20, gp, l2-data+64
+  lv v21, gp, l2-data+96
+  lv v22, gp, l2-data+128
+  lv v23, gp, l2-data+160
+  lv v24, gp, l2-data+192
+  lv v25, gp, l2-data+224
 
   # Layer 3
-  lv v26, x1, l3-data+0
-  lv v27, x1, l3-data+32
-  lv v28, x1, l3-data+64
+  lv v26, gp, l3-data+0
+  lv v27, gp, l3-data+32
+  lv v28, gp, l3-data+64
 
-  addi x2, x1, iris_x - data # x2 <- iris_x pointer
-  addi x3, x1, iris_y - data # x2 <- iris_y pointer
-  addi x20, x2, 1200 # 150 * 8
+  addi t0, gp, iris_x - data # t0 <- iris_x pointer
+  addi t1, gp, iris_y - data # t0 <- iris_y pointer
+  addi t2, t0, 1200 # 150 * 8
 
 loop:
   # Feed forward
-  lv v1, x2, 0
+  lv v1, t0, 0
 
   # Input -> Layer 0
   mulmv v1, v2, v1 # MULMV v1=(v2:v9)*v1
   # Bias
-  lv v30, x1, b0-data
+  lv v30, gp, b0-data
   addv v1, v1, v30
   # ReLu
   ltv v1, v0
@@ -56,7 +62,7 @@ loop:
 
   # Layer 1 -> Layer 2
   mulmv v1, v10, v1 # MULMV v1=(v10:v17)*v1
-  lv v30, x1, b1-data
+  lv v30, gp, b1-data
   addv v1, v1, v30
   # ReLu
   ltv v1, v0
@@ -64,7 +70,7 @@ loop:
 
   # Layer 2 -> Layer 3
   mulmv v1, v18, v1 # MULMV v1=(v18:v25)*v1
-  lv v30, x1, b2-data
+  lv v30, gp, b2-data
   addv v1, v1, v30
   # ReLu
   ltv v1, v0
@@ -72,66 +78,67 @@ loop:
 
   # Layer 3 -> Out
   mulmv v1, v26, v1 # MULMV v1=(v26:v28)*v1
-  lv v30, x1, b3-data
+  lv v30, gp, b3-data
   addv v1, v1, v30
   # ReLu
   ltv v1, v0
   movmv v1, v0
 
-  lb x10, x3, 0
-  jal x31, check_result
+  lb a0, t1, 0
+  jal check_result
 
-  addi x2, x2, 8
-  addi x3, x3, 1
+  addi t0, t0, 8
+  addi t1, t1, 1
 
-  blt x2, x20, loop
+  blt t0, t2, loop
 
-  addi x1, x0, -16
+  addi t1, zero, -16
 
   # Write correct result count to hex display
-  lw x2, x0, correct_results
-  sb x2, x1, 0
+  lw t0, gp, correct_results - data
+  sb t0, t1, 0
 
-halt:
-  jal x0, halt
+  lw gp, sp, 0
+  lw ra, sp, 4
+  addi sp, sp, 8
+  ret
 
-# expected result in x10
+# expected result in a0
 check_result:
-  sv v1, x0, res_vec
-  lui x4, 0  # x4 <- loop counter
-  addi x5, x0, -1 # x5 <- maximal element
-  lui x6, 0  # x6 <- maximal index
-  addi x7, x0, 3
-  addi x9, x0, res_vec
+  sv v1, gp, res_vec - data
+  mv t4, zero  # t4 <- loop counter
+  addi t5, zero, -1 # t5 <- maximal element
+  mv a1, zero  # a1 <- maximal index
+  addi a2, zero, 3
+  addi a3, gp, res_vec - data
 
 res_loop:
-  bge x4, x7, res_loop_end
-  lh x8, x9, 0
-  blt x8, x5, res_skip
+  bge t4, a2, res_loop_end
+  lh a4, a3, 0
+  blt a4, t5, res_skip
 
-  add x5, x0, x8
-  add x6, x0, x4
+  mv t5, a4
+  mv a1, t4
 res_skip:
-  addi x4, x4, 1
-  addi x9, x9, 2
+  addi t4, t4, 1
+  addi a3, a3, 2
   j res_loop
 
 res_loop_end:
-  bne x6, x10, res_ret
-  lw x5, x0, correct_results
-  addi x5, x5, 1
-  sw x5, x0, correct_results
+  bne a1, a0, res_ret
+  lw t5, gp, correct_results - data
+  addi t5, t5, 1
+  sw t5, gp, correct_results - data
 
 res_ret:
-  jr x31, 0
+  ret
 
+org 0x2000
+data:
 res_vec:
 dat 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 correct_results:
 dat 0
-
-org 0x2000
-data:
 l0:
 dat 0x04f40c54, 0xfe1ff6ca, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 dat 0xffff0000, 0x00190102, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
