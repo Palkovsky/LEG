@@ -178,7 +178,7 @@ i_inst() {
 s_inst() {
     # $1 - imm12, $2 - rs2, $3 - rs1, $4 - funct3, $5 - opcode
     imm="$(( $1 & 0xFFF ))"
-    imm_1="$(( ($imm>>5) &  0x3F ))" # [11:5]
+    imm_1="$(( ($imm>>5) &  0x7F ))" # [11:5]
     imm_2="$(( $imm & 0x1F ))" # [4:0]
     echo "$(( ($imm_1<<25) + ($2<<20) + ($3<<15) + ($4<<12) + ($imm_2<<7) + $5 ))"
 }
@@ -251,7 +251,7 @@ declare -A OP_FUNCT3=( \
     ["xor"]=4 ["srl"]=5 ["sra"]=5 ["or"]=6 ["and"]=7 \
 )
 declare -A LOAD_FUNCT3=( \
-    ["lb"]=0 ["lh"]=1 ["lw"]=2 ["lbu"]=3 ["lhu"]=4 \
+    ["lb"]=0 ["lh"]=1 ["lw"]=2 ["lbu"]=4 ["lhu"]=5 \
 )
 declare -A STORE_FUNCT3=( \
     ["sb"]=0 ["sh"]=1 ["sw"]=2 \

@@ -7,7 +7,8 @@ typedef unsigned long uint32_t;
 #define true 1
 #define false 0
 
-#define UART_MMIO ((volatile uint8_t*) 0xffffffff)
+#define UART_TX_MMIO ((volatile uint8_t*) 0xffffffff)
+#define UART_RX_MMIO ((volatile uint8_t*) 0xfffffffe)
 
 #define CMD_LOAD 0x10
 #define CMD_START 0x20
@@ -19,11 +20,11 @@ static void cmd_load();
 static void cmd_start();
 
 static uint8_t read_byte() {
-  return *UART_MMIO;
+  return *UART_RX_MMIO;
 }
 
 static void write_byte(uint8_t b) {
-  *UART_MMIO = b;
+  *UART_TX_MMIO = b;
 }
 
 static uint32_t read_word() {
@@ -40,8 +41,10 @@ void main() {
     switch (command) {
     case CMD_LOAD:
       cmd_load();
+      break;
     case CMD_START:
       cmd_start();
+      break;
     default:
       ;
       // do nothing

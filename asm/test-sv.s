@@ -1,3 +1,4 @@
+org 0x200
 start:
   lw x1, x0, var
   lv v1, x0, test_vec

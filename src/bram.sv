@@ -148,116 +148,96 @@ module bram #(
      mem[04] = 32'h4080d093;
      mem[05] = 32'hfe0088e3;
 	   mem[06] = 32'hff5ff06f;
-     */
-	  
+      */
+
      /*
-      # Vector load test
-      0: addi x1, x0, 16
-      4: lv v0, x1, 16
-      8: sv v0, x1, 32
-      12: lv v1, x1, 16
-      16: jal x0, 2
-      32: dh 0000h 1111h 2222h 3333h 4444h 5555h ...
-     mem[0] = 'h01000093;
-     mem[1] = 'h0100900B;
-     mem[2] = 'h0200A00B;
-     mem[3] = 'h0100908B;
-     // Position-indepenednt loop
-     mem[4] = 'h0000006f;
-     // Data
-     mem[8] = 'h11110000;
-     mem[9] = 'h33332222;
-     mem[10] = 'h55554444;
-     mem[11] = 'h77776666;
-     mem[12] = 'h99998888;
-     mem[13] = 'hBBBBAAAA;
-     mem[14] = 'hDDDDCCCC;
-     mem[15] = 'hFFFFEEEE;
-    */
-     mem[0] = 'h00001137; // lui sp 0x1
-     mem[1] = 'h008000ef; // jal main
-     mem[2] = 'h0000006f; // j halt
-     mem[3] = 'hfe010113; // addi sp sp - 32
-     mem[4] = 'h00112e23; // sw ra sp 28
-     mem[5] = 'h00812c23; // sw s0 sp 24
-     mem[6] = 'h00912a23; // sw s1 sp 20
-     mem[7] = 'h01212823; // sw s2 sp 16
-     mem[8] = 'h01312623; // sw s3 sp 12
-     mem[9] = 'h02000993; // addi s3 zero 32
-     mem[10] = 'h01000913; // addi s2 zero 16
-     mem[11] = 'h0340006f; // j .lbb0_3
-     mem[12] = 'h7ea00fa3; // sb a0 zero - 1
-     mem[13] = 'hfff03503; // lbu a0 zero - 1
-     mem[14] = 'hfff03583; // lbu a1 zero - 1
-     mem[15] = 'hfff03603; // lbu a2 zero - 1
-     mem[16] = 'h00859593; // slli a1 a1 8
-     mem[17] = 'hfff00683; // lb a3 zero - 1
-     mem[18] = 'h00b56533; // or a0 a0 a1
-     mem[19] = 'h01061593; // slli a1 a2 16
-     mem[20] = 'h00b56533; // or a0 a0 a1
-     mem[21] = 'h01869593; // slli a1 a3 24
-     mem[22] = 'h00b56533; // or a0 a0 a1
-     mem[23] = 'h000500e7; // jalr a0
-     mem[24] = 'hfff03503; // lbu a0 zero - 1
-     mem[25] = 'hfd3508e3; // beq a0 s3 .lbb0_2
-     mem[26] = 'hff251ce3; // bne a0 s2 .lbb0_3
-     mem[27] = 'hfff03503; // lbu a0 zero - 1
-     mem[28] = 'hfff03583; // lbu a1 zero - 1
-     mem[29] = 'hfff03603; // lbu a2 zero - 1
-     mem[30] = 'h00859593; // slli a1 a1 8
-     mem[31] = 'h00b56533; // or a0 a0 a1
-     mem[32] = 'h01061593; // slli a1 a2 16
-     mem[33] = 'h00b56733; // or a4 a0 a1
-     mem[34] = 'hfff00783; // lb a5 zero - 1
-     mem[35] = 'hfff03483; // lbu s1 zero - 1
-     mem[36] = 'hfff03403; // lbu s0 zero - 1
-     mem[37] = 'hfff03503; // lbu a0 zero - 1
-     mem[38] = 'hfff03583; // lbu a1 zero - 1
-     mem[39] = 'hfff03803; // lbu a6 zero - 1
-     mem[40] = 'hfff03683; // lbu a3 zero - 1
-     mem[41] = 'hfff03283; // lbu t0 zero - 1
-     mem[42] = 'hfff00883; // lb a7 zero - 1
-     mem[43] = 'h01879793; // slli a5 a5 24
-     mem[44] = 'h00f76733; // or a4 a4 a5
-     mem[45] = 'h06070063; // beqz a4 .lbb0_8
-     mem[46] = 'h00000793; // mv a5 zero
-     mem[47] = 'h00841413; // slli s0 s0 8
-     mem[48] = 'h0084e4b3; // or s1 s1 s0
-     mem[49] = 'h01051513; // slli a0 a0 16
-     mem[50] = 'h00956533; // or a0 a0 s1
-     mem[51] = 'h01859593; // slli a1 a1 24
-     mem[52] = 'h00b564b3; // or s1 a0 a1
-     mem[53] = 'hfff03503; // lbu a0 zero - 1
-     mem[54] = 'hfff03583; // lbu a1 zero - 1
-     mem[55] = 'hfff03403; // lbu s0 zero - 1
-     mem[56] = 'h00859593; // slli a1 a1 8
-     mem[57] = 'hfff00603; // lb a2 zero - 1
-     mem[58] = 'h00b56533; // or a0 a0 a1
-     mem[59] = 'h01041593; // slli a1 s0 16
-     mem[60] = 'h00b56533; // or a0 a0 a1
-     mem[61] = 'h01861593; // slli a1 a2 24
-     mem[62] = 'h00b56533; // or a0 a0 a1
-     mem[63] = 'h00a7c7b3; // xor a5 a5 a0
-     mem[64] = 'h00a4a023; // sw a0 s1 0
-     mem[65] = 'hfff70713; // addi a4 a4 - 1
-     mem[66] = 'h00448493; // addi s1 s1 4
-     mem[67] = 'hfc0714e3; // bnez a4 .lbb0_7
-     mem[68] = 'h0080006f; // j .lbb0_9
-     mem[69] = 'h00000793; // mv a5 zero
-     mem[70] = 'h00869513; // slli a0 a3 8
-     mem[71] = 'h01056533; // or a0 a0 a6
-     mem[72] = 'h01029593; // slli a1 t0 16
-     mem[73] = 'h00b56533; // or a0 a0 a1
-     mem[74] = 'h01889593; // slli a1 a7 24
-     mem[75] = 'h00a5e5b3; // or a1 a1 a0
-     mem[76] = 'h00100513; // addi a0 zero 1
-     mem[77] = 'heeb78ee3; // beq a5 a1 .lbb0_1
-     mem[78] = 'h00200513; // addi a0 zero 2
-     mem[79] = 'hef5ff06f; // j .lbb0_1
-
-
-
-	end
+      * Bootloader
+      */
+mem[0] = 'h00001137; // lui sp 0x1
+mem[1] = 'h008000ef; // jal main
+mem[2] = 'h0000006f; // j halt
+mem[3] = 'hfe010113; // addi sp sp - 32
+mem[4] = 'h00112e23; // sw ra sp 28
+mem[5] = 'h00812c23; // sw s0 sp 24
+mem[6] = 'h00912a23; // sw s1 sp 20
+mem[7] = 'h01212823; // sw s2 sp 16
+mem[8] = 'h01312623; // sw s3 sp 12
+mem[9] = 'h01412423; // sw s4 sp 8
+mem[10] = 'h01512223; // sw s5 sp 4
+mem[11] = 'h02000a93; // addi s5 zero 32
+mem[12] = 'h01000a13; // addi s4 zero 16
+mem[13] = 'h00100913; // addi s2 zero 1
+mem[14] = 'h00200993; // addi s3 zero 2
+mem[15] = 'h0300006f; // j .lbb0_2
+mem[16] = 'hffe04503; // lbu a0 zero - 2
+mem[17] = 'hffe04583; // lbu a1 zero - 2
+mem[18] = 'hffe04603; // lbu a2 zero - 2
+mem[19] = 'h00859593; // slli a1 a1 8
+mem[20] = 'hffe00683; // lb a3 zero - 2
+mem[21] = 'h00b56533; // or a0 a0 a1
+mem[22] = 'h01061593; // slli a1 a2 16
+mem[23] = 'h00b56533; // or a0 a0 a1
+mem[24] = 'h01869593; // slli a1 a3 24
+mem[25] = 'h00b56533; // or a0 a0 a1
+mem[26] = 'h000500e7; // jalr a0
+mem[27] = 'hffe04503; // lbu a0 zero - 2
+mem[28] = 'hfd5508e3; // beq a0 s5 .lbb0_1
+mem[29] = 'hff451ce3; // bne a0 s4 .lbb0_2
+mem[30] = 'hffe04503; // lbu a0 zero - 2
+mem[31] = 'hffe04583; // lbu a1 zero - 2
+mem[32] = 'hffe04603; // lbu a2 zero - 2
+mem[33] = 'h00859593; // slli a1 a1 8
+mem[34] = 'h00b56533; // or a0 a0 a1
+mem[35] = 'h01061593; // slli a1 a2 16
+mem[36] = 'h00b56733; // or a4 a0 a1
+mem[37] = 'hffe00783; // lb a5 zero - 2
+mem[38] = 'hffe04483; // lbu s1 zero - 2
+mem[39] = 'hffe04403; // lbu s0 zero - 2
+mem[40] = 'hffe04503; // lbu a0 zero - 2
+mem[41] = 'hffe04583; // lbu a1 zero - 2
+mem[42] = 'hffe04803; // lbu a6 zero - 2
+mem[43] = 'hffe04683; // lbu a3 zero - 2
+mem[44] = 'hffe04283; // lbu t0 zero - 2
+mem[45] = 'hffe00883; // lb a7 zero - 2
+mem[46] = 'h01879793; // slli a5 a5 24
+mem[47] = 'h00f76733; // or a4 a4 a5
+mem[48] = 'h06070063; // beqz a4 .lbb0_7
+mem[49] = 'h00000793; // mv a5 zero
+mem[50] = 'h00841413; // slli s0 s0 8
+mem[51] = 'h0084e4b3; // or s1 s1 s0
+mem[52] = 'h01051513; // slli a0 a0 16
+mem[53] = 'h00956533; // or a0 a0 s1
+mem[54] = 'h01859593; // slli a1 a1 24
+mem[55] = 'h00b564b3; // or s1 a0 a1
+mem[56] = 'hffe04503; // lbu a0 zero - 2
+mem[57] = 'hffe04583; // lbu a1 zero - 2
+mem[58] = 'hffe04403; // lbu s0 zero - 2
+mem[59] = 'h00859593; // slli a1 a1 8
+mem[60] = 'hffe00603; // lb a2 zero - 2
+mem[61] = 'h00b56533; // or a0 a0 a1
+mem[62] = 'h01041593; // slli a1 s0 16
+mem[63] = 'h00b56533; // or a0 a0 a1
+mem[64] = 'h01861593; // slli a1 a2 24
+mem[65] = 'h00b56533; // or a0 a0 a1
+mem[66] = 'h00a7c7b3; // xor a5 a5 a0
+mem[67] = 'h00a4a023; // sw a0 s1 0
+mem[68] = 'hfff70713; // addi a4 a4 - 1
+mem[69] = 'h00448493; // addi s1 s1 4
+mem[70] = 'hfc0714e3; // bnez a4 .lbb0_6
+mem[71] = 'h0080006f; // j .lbb0_8
+mem[72] = 'h00000793; // mv a5 zero
+mem[73] = 'h00869513; // slli a0 a3 8
+mem[74] = 'h01056533; // or a0 a0 a6
+mem[75] = 'h01029593; // slli a1 t0 16
+mem[76] = 'h00b56533; // or a0 a0 a1
+mem[77] = 'h01889593; // slli a1 a7 24
+mem[78] = 'h00b56533; // or a0 a0 a1
+mem[79] = 'h00a79663; // bne a5 a0 .lbb0_10
+mem[80] = 'hff200fa3; // sb s2 zero - 1
+mem[81] = 'hf29ff06f; // j .lbb0_2
+mem[82] = 'hff300fa3; // sb s3 zero - 1
+mem[83] = 'hf21ff06f; // j .lbb0_2
+  end
 
   always @(posedge i_clk) begin
      o_data <= mem[i_addr];

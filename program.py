@@ -66,6 +66,9 @@ class Block:
             acc ^= word
         return acc
 
+    def __str__(self):
+        return f'Block, start_addr: {self.start_addr}, current_addr: {self.current_addr}'
+
 def split_blocks(rows, block_size):
     blocks = []
     current_block = None
@@ -87,6 +90,7 @@ def send_block(serial, block):
     checksum = block.checksum()
     attempts = 0
     while True:
+        print(block)
         serial.write(bytes([CMD_LOAD]))
         serial.write(int.to_bytes(block.size(), length=4, byteorder='little'))
         serial.write(int.to_bytes(block.start_addr, length=4, byteorder='little'))

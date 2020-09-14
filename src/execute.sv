@@ -101,9 +101,9 @@ module execute (
    reg                        mem_transfer_done;
 
    task SAVE_INT_RESULT(logic[31:0] value);
-      if (w_rd != 0) begin
+      //if (w_rd != 0) begin
          X[w_rd] <= value;
-      end
+      //end
    endtask
 
    always_comb begin
@@ -253,9 +253,9 @@ module execute (
       { o_wr_valid, o_rd_ready, o_data, o_addr, mem_transfer_done } <= 0;
 
       case (w_funct3)
-        `SB: o_wr_width <= 1;
-        `SH: o_wr_width <= 2;
-        `SW: o_wr_width <= 4;
+        `SB, `LB, `LBU: o_wr_width <= 1;
+        `SH, `LH, `LHU: o_wr_width <= 2;
+        `SW, `LW: o_wr_width <= 4;
         default: o_wr_width <= 0;
       endcase
 
@@ -290,8 +290,8 @@ module execute (
    always_comb begin
       casez ({w_opcode, w_funct3, w_funct7})
          { `LOAD, {10{1'b?}} },
-         { `STORE, {10{1'b?}} }:
-            r_last_cycle <= mem_transfer_done;
+        { `STORE, {10{1'b?}} }:
+           r_last_cycle <= mem_transfer_done;
          { `OP_VEC_I, `VECI_LV, {7{1'b?}} }:
             r_last_cycle <= r_vec_counter == `VEC_DIM / 2 + 1;
          { `OP_VEC_I, `VECI_SV, {7{1'b?}} }:
@@ -324,15 +324,15 @@ module execute (
       case (w_opcode)
         `LOAD: begin
            r_alu_operation <= `ALU_ADD;
-           r_alu_op1 <= X_rs1; // base address
-           r_alu_op2 <= w_I;      // imm offset
+           r_alu_op1 <= X_rs1;   // base address
+           r_alu_op2 <= w_I_se;  // imm offset
         end
         `OP_VEC_I: begin
            case (w_funct3)
              `VECI_LV, `VECI_SV: begin
                 r_alu_operation <= `ALU_ADD;
-                r_alu_op1 <= X_rs1; // base address
-                r_alu_op2 <= w_I;      // imm offset
+                r_alu_op1 <= X_rs1;  // base address
+                r_alu_op2 <= w_I_se; // imm offset
                 r_alu_op3 <= r_vec_counter * 4;
              end
             endcase
@@ -340,7 +340,7 @@ module execute (
         `STORE: begin
            r_alu_operation <= `ALU_ADD;
            r_alu_op1 <= X_rs1;
-           r_alu_op2 <= w_S;
+           r_alu_op2 <= w_S_se;
         end
         `BRANCH: begin
            r_alu_operation <= `ALU_ADD;

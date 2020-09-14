@@ -1,6 +1,9 @@
 `ifndef COMMON
  `define COMMON
 
+  // Clock Rate
+ `define CLK_RATE 25_000_000
+
  // Sizes
  `define DATA_WIDTH 32
  `define BRAM_WIDTH 14
@@ -116,5 +119,5 @@
  `define VEC_GE 3'h5
 
 // UART
- `define UART_BAUD_RATE 115200
+ `define UART_BAUD_RATE 9600
 `endif
