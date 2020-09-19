@@ -9,7 +9,8 @@ start:
   beq x2, x1, print
   addi x3, x0, 0x11
 
-# Should print 0x22 if sv didn't overwriten var
+  # 0x22 if sv didn't overwrite var
+  # 0x11 otherwise
 print:
   addi x1, x0, -16
   sb x3, x1, 0

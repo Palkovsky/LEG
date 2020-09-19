@@ -87,6 +87,11 @@ module cpu_tb;
          uart_send(0);
          uart_send(0);
       end
+      wait(leg.core.pc > 'h400);
+      rst = 1;
+      @(posedge clk);
+      #1;
+      rst = 0;
    end
 
 	 // Clock generator

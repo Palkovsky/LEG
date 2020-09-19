@@ -1,11 +1,11 @@
-org 0x1000
+org 0x200
 
 start:
   addi sp, sp, -8
   sw gp, sp, 0
   sw ra, sp, 4
-  
-  # gp=0x2000  
+
+  # gp=0x2000
   lui gp, 2
 
   # Layer 0

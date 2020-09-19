@@ -20,7 +20,7 @@ module LEG(
 );
 
    wire        pll_clk;
-   pll pll (.areset(i_rst), .inclk0(i_clk), .c0(pll_clk), .locked());
+   pll pll (.areset(0), .inclk0(i_clk), .c0(pll_clk), .locked());
 
    cpu cpu
      (

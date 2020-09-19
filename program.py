@@ -51,7 +51,7 @@ class Block:
         self.words = []
 
     def size(self):
-        return self.current_addr - self.start_addr
+        return (self.current_addr - self.start_addr)//4
 
     def add(self, addr, data):
         while(self.current_addr < addr):
