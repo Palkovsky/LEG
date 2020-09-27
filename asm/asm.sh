@@ -51,6 +51,9 @@ isxreg() {
 isvreg() {
     [[ "$1" =~ ^v[0-9]+$ ]]
 }
+ismreg() {
+    [[ "$1" =~ ^m[0-9]+$ ]]
+}
 isdec() {
     [[ "$1" =~ ^-?[0-9]+$ ]]
 }
@@ -221,6 +224,9 @@ xreg_to_num() {
 vreg_to_num() {
     echo "$(echo $1 | cut -c 2-)"
 }
+mreg_to_num() {
+    echo "$(echo $1 | cut -c 2-)"
+}
 to_param_list () {
     declare -n outlist=$1
     declare -n inhash=$2
@@ -260,7 +266,7 @@ declare -A BRANCH_FUNCT3=( \
     ["beq"]=0 ["bne"]=1 ["blt"]=4 ["bge"]=5 ["bltu"]=6 ["bgeu"]=7 \
 )
 declare -A VEC_I_FUNCT3=(\
-    ["lv"]=1 ["sv"]=2 \
+    ["lv"]=1 ["sv"]=2 ["lm"]=3 \
 )
 declare -A VEC_R_CMP_FUNCT3=( \
     ["eq"]=0 ["ne"]=1 ["lt"]=2 ["le"]=3 ["gt"]=4 ["ge"]=5 \
@@ -442,6 +448,13 @@ while read -r LINE; do
             r_dest="$(vreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))"
             code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["$(a0)"]} $r_dest ${OPS["VEC_I"]}))
             ;;
+        lm)
+            # LM mX, rX, imm
+            assert_gte 4 ; assert ismreg $(a1) ; assert isxreg $(a2)
+            offset=$(imm_rest 3) ; assert_range -2048 2047 $offset
+            r_dest="$(mreg_to_num $(a1))" ; r_base="$(xreg_to_num $(a2))"
+            code=$(hexinst $(i_inst $offset $r_base ${VEC_I_FUNCT3["lm"]} $r_dest ${OPS["VEC_I"]}))
+            ;;
         dotv)
             # DOTV x1, v0, v1
             assert_len 4 ; assert isxreg $(a1) ; assert isvreg $(a2) ; assert isvreg $(a3)
@@ -461,9 +474,9 @@ while read -r LINE; do
             code=$(hexinst $(r_inst 13 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
             ;;
         mulmv)
-            # MULMV vX, vM, vV
-            assert_len 4 ; assert isvreg $(a1) ; assert isvreg $(a2) ; assert isvreg $(a3)
-            r_dest="$(vreg_to_num $(a1))" ; r_1="$(vreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
+            # MULMV vX, mM, vV
+            assert_len 4 ; assert isvreg $(a1) ; assert ismreg $(a2) ; assert isvreg $(a3)
+            r_dest="$(vreg_to_num $(a1))" ; r_1="$(mreg_to_num $(a2))" ; r_2="$(vreg_to_num $(a3))"
             code=$(hexinst $(r_inst 12 $r_2 $r_1 0 $r_dest ${OPS["VEC_R"]}))
             ;;
         eqv | nev | ltv | lev | gtv | gev)

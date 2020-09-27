@@ -930,12 +930,12 @@ module execute_tb;
          // vunit: .execute
          // vunit: .vec
          // vunit: .mulmv
-         // MULMV v17, v0-v15, v16
+         // MULMV v17, m0, v16
          inst <= R(`OP_VEC_R, 0, `VECR_MULMV, 17, 0, 16);
-         execute.vec_ram.mem[0] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
-         execute.vec_ram.mem[1] <= 256'h0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
-         execute.vec_ram.mem[2] <= 256'h0000_0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
-         execute.vec_ram.mem[15] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.vec_ram.mem[32 + 0] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
+         execute.vec_ram.mem[32 + 1] <= 256'h0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+         execute.vec_ram.mem[32 + 2] <= 256'h0000_0000_0800_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000_0000;
+         execute.vec_ram.mem[32 + 15] <= 256'h0000_0100_0200_0300_0400_0500_0600_0700_0800_0900_0a00_0b00_0c00_0d00_0e00_0f00;
 
          execute.vec_ram.mem[16] <= 256'h0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800_0800;
          execute.vec_ram.mem[17] <= 0;
@@ -956,7 +956,8 @@ module execute_tb;
          `CHECK_EQUAL(finished, 0);
          `CHECK_EQUAL(execute.w_vram_we, 1);
          `CHECK_EQUAL(execute.r_vec_counter, 16);
-         `CHECK_EQUAL(execute.w_vram_waddr, 17);
+         `CHECK_EQUAL(execute.w_vram_windex, 17);
+         `CHECK_EQUAL(execute.w_vram_wmatrix, 0);
          `CHECK_EQUAL(execute.w_vram_wdata, execute.r_vec_tmp16);
 
          next_cycle();

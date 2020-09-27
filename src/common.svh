@@ -99,6 +99,7 @@
 // Vector immediate instructions
  `define VECI_LV 3'h1 // Load vector
  `define VECI_SV 3'h2 // Store vector
+ `define VECI_LM 3'h3 // Load matrix
 
 // Vector register instructions
  `define VECR_DOTV  7'h1 // Dot product of two vectors

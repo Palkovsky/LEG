@@ -67,20 +67,27 @@ module execute (
 
    // Vector transfer
    logic [5:0]               r_vec_counter = 0;
+   logic [5:0]               r_mat_counter = 0;
    logic [7:0][31:0]         r_vec_tmp = 0;
    logic [15:0][15:0]        r_vec_tmp16 = 0;
 
    // vec_ram access
    logic                     w_vram_we;
-   logic [4:0]               w_vram_waddr;
+   logic [4:0]               w_vram_windex;
+   logic [3:0]               w_vram_wrow;
+   logic                     w_vram_wmatrix;
    logic [15:0][15:0]        w_vram_wdata;
 
-   logic [4:0]               w_vram_raddr1;
+   logic [4:0]               w_vram_rindex1;
+   logic [3:0]               w_vram_rrow1;
+   logic                     w_vram_rmatrix1;
    logic [15:0][15:0]        w_vram_rdata1;
    logic [7:0][31:0]         w_vram_rdata1_32;
    assign w_vram_rdata1_32 = w_vram_rdata1;
 
-   logic [4:0]               w_vram_raddr2;
+   logic [4:0]               w_vram_rindex2;
+   logic [3:0]               w_vram_rrow2;
+   logic                     w_vram_rmatrix2;
    logic [15:0][15:0]        w_vram_rdata2;
    logic [7:0][31:0]         w_vram_rdata2_32;
    assign w_vram_rdata2_32 = w_vram_rdata2;
@@ -101,9 +108,9 @@ module execute (
    reg                        mem_transfer_done;
 
    task SAVE_INT_RESULT(logic[31:0] value);
-      //if (w_rd != 0) begin
+      if (w_rd != 0) begin
          X[w_rd] <= value;
-      //end
+      end
    endtask
 
    always_comb begin
@@ -147,6 +154,8 @@ module execute (
          VEC_LOAD_SEQ();
       else if (w_funct3 == `VECI_SV)
          VEC_STORE_SEQ();
+      else if (w_funct3 == `VECI_LM)
+         MX_LOAD_SEQ();
    endtask
 
    task VEC_LOAD_SEQ();
@@ -168,15 +177,38 @@ module execute (
          r_vec_counter <= 0;
    endtask
 
+   task MX_LOAD_SEQ();
+      if (o_rd_ready && i_rd_valid && r_vec_counter < 8) begin
+         r_vec_tmp[r_vec_counter] <= i_data;
+         r_vec_counter <= r_vec_counter + 1;
+      end
+      if (r_vec_counter == 8)
+        r_vec_counter <= 9;
+      if (r_vec_counter == 9) begin
+         r_vec_counter <= 0;
+         if (r_mat_counter < 15)
+           r_mat_counter <= r_mat_counter + 1;
+         else
+           r_mat_counter <= 0;
+      end
+   endtask
+
    always_comb begin
       // Write signals
       w_vram_we <= 0;
-      w_vram_waddr <= w_rd;
+      w_vram_windex <= w_rd;
+      w_vram_wrow <= 0;
+      w_vram_wmatrix <= 0;
       w_vram_wdata <= 0;
 
       // Read signals
-      w_vram_raddr1 <= w_rs1;
-      w_vram_raddr2 <= w_rs2;
+      w_vram_rindex1 <= w_rs1;
+      w_vram_rmatrix1 <= 0;
+      w_vram_rrow1 <= 0;
+
+      w_vram_rindex2 <= w_rs2;
+      w_vram_rmatrix2 <= 0;
+      w_vram_rrow2 <= 0;
 
     // Default mask
       w_vcmp_mask_arg <= '1;
@@ -195,7 +227,12 @@ module execute (
               `VECI_LV:
                 w_vram_we <= (r_vec_counter >= 8);
               `VECI_SV:
-                w_vram_raddr1 <= w_rd;
+                w_vram_rindex1 <= w_rd;
+              `VECI_LM: begin
+                 w_vram_we <= (r_vec_counter >= 8);
+                 w_vram_wmatrix <= 1;
+                 w_vram_wrow <= r_mat_counter;
+              end
             endcase
          end
          else if (w_opcode == `OP_VEC_R) begin
@@ -211,17 +248,15 @@ module execute (
               end
               `VECR_CMPV, `VECR_CMPMV:  ;
               `VECR_MOVV, `VECR_MOVMV: begin
-                 w_vram_waddr <= w_rd;
-                 w_vram_raddr2 <= w_rd;
+                 w_vram_rindex2 <= w_rd;
                  w_vram_we <= 1;
                  for (int i = 0; i < 16; i++) begin
                     w_vram_wdata[i] <= w_vcmp_mask_arg[i] ? w_vram_rdata1[i] : w_vram_rdata2[i];
                  end
               end
               `VECR_MULMV: begin
-                 w_vram_raddr1 <= w_rs1 + r_vec_counter;
-                 w_vram_raddr2 <= w_rs2;
-                 w_vram_waddr <= w_rd;
+                 w_vram_rrow1 <= r_vec_counter;
+                 w_vram_rmatrix1 <= 1;
                  w_vram_wdata <= r_vec_tmp16;
                  w_vram_we <= (r_vec_counter == `VEC_DIM);
               end
@@ -280,6 +315,10 @@ module execute (
             o_addr <= r_alu_result;
             o_data <= w_vram_rdata1_32[r_vec_counter];
          end
+        { `OP_VEC_I, `VECI_LM }: begin
+            o_rd_ready <= 1;
+            o_addr <= r_alu_result;
+         end
       endcase
    end
 
@@ -296,6 +335,8 @@ module execute (
             r_last_cycle <= r_vec_counter == `VEC_DIM / 2 + 1;
          { `OP_VEC_I, `VECI_SV, {7{1'b?}} }:
             r_last_cycle <= r_vec_counter == `VEC_DIM / 2 - 1;
+         { `OP_VEC_I, `VECI_LM, {7{1'b?}} }:
+            r_last_cycle <= (r_vec_counter == `VEC_DIM / 2 + 1) && r_mat_counter == (`VEC_DIM - 1);
          { `OP_VEC_R, {3{1'b?}}, `VECR_MULMV}:
             r_last_cycle <= r_vec_counter > `VEC_DIM;
          default:
@@ -334,6 +375,12 @@ module execute (
                 r_alu_op1 <= X_rs1;  // base address
                 r_alu_op2 <= w_I_se; // imm offset
                 r_alu_op3 <= r_vec_counter * 4;
+             end
+             `VECI_LM: begin
+                r_alu_operation <= `ALU_ADD;
+                r_alu_op1 <= X_rs1;  // base address
+                r_alu_op2 <= w_I_se; // imm offset
+                r_alu_op3 <= r_vec_counter * 4 + r_mat_counter * `VEC_DIM * 2;
              end
             endcase
          end
@@ -536,14 +583,20 @@ module execute (
      .i_clk(i_clk),
      .i_rst(i_rst),
 
-     .i_read_addr_a(w_vram_raddr1),
+     .i_read_index_a(w_vram_rindex1),
+     .i_read_row_a(w_vram_rrow1),
+     .i_read_matrix_a(w_vram_rmatrix1),
      .o_read_data_a(w_vram_rdata1),
 
-     .i_read_addr_b(w_vram_raddr2),
+     .i_read_index_b(w_vram_rindex2),
+     .i_read_row_b(w_vram_rrow2),
+     .i_read_matrix_b(w_vram_rmatrix2),
      .o_read_data_b(w_vram_rdata2),
 
      .i_write_enable(w_vram_we),
-     .i_write_addr(w_vram_waddr),
+     .i_write_index(w_vram_windex),
+     .i_write_row(w_vram_wrow),
+     .i_write_matrix(w_vram_wmatrix),
      .i_write_data(w_vram_wdata)
    );
 
