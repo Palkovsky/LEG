@@ -9,39 +9,16 @@ start:
   lui gp, 2
 
   # Layer 0
-  lv v2, gp, l0-data+0
-  lv v3, gp, l0-data+32
-  lv v4, gp, l0-data+64
-  lv v5, gp, l0-data+96
-  lv v6, gp, l0-data+128
-  lv v7, gp, l0-data+160
-  lv v8, gp, l0-data+192
-  lv v9, gp, l0-data+224
+  lm m0, gp, l0-data
 
   # Layer 1
-  lv v10, gp, l1-data+0
-  lv v12, gp, l1-data+64
-  lv v11, gp, l1-data+32
-  lv v13, gp, l1-data+96
-  lv v14, gp, l1-data+128
-  lv v15, gp, l1-data+160
-  lv v16, gp, l1-data+192
-  lv v17, gp, l1-data+224
+  lm m1, gp, l1-data
 
   # Layer 2
-  lv v18, gp, l2-data+0
-  lv v19, gp, l2-data+32
-  lv v20, gp, l2-data+64
-  lv v21, gp, l2-data+96
-  lv v22, gp, l2-data+128
-  lv v23, gp, l2-data+160
-  lv v24, gp, l2-data+192
-  lv v25, gp, l2-data+224
+  lm m2, gp, l2-data
 
   # Layer 3
-  lv v26, gp, l3-data+0
-  lv v27, gp, l3-data+32
-  lv v28, gp, l3-data+64
+  lm m3, gp, l3-data
 
   addi t0, gp, iris_x - data # t0 <- iris_x pointer
   addi t1, gp, iris_y - data # t0 <- iris_y pointer
@@ -52,7 +29,7 @@ loop:
   lv v1, t0, 0
 
   # Input -> Layer 0
-  mulmv v1, v2, v1 # MULMV v1=(v2:v9)*v1
+  mulmv v1, m0, v1 # MULMV v1=m0*v1
   # Bias
   lv v30, gp, b0-data
   addv v1, v1, v30
@@ -61,7 +38,7 @@ loop:
   movmv v1, v0
 
   # Layer 1 -> Layer 2
-  mulmv v1, v10, v1 # MULMV v1=(v10:v17)*v1
+  mulmv v1, m1, v1 # MULMV v1=m1*v1
   lv v30, gp, b1-data
   addv v1, v1, v30
   # ReLu
@@ -69,7 +46,7 @@ loop:
   movmv v1, v0
 
   # Layer 2 -> Layer 3
-  mulmv v1, v18, v1 # MULMV v1=(v18:v25)*v1
+  mulmv v1, m2, v1 # MULMV v1=m2*v1
   lv v30, gp, b2-data
   addv v1, v1, v30
   # ReLu
@@ -77,7 +54,7 @@ loop:
   movmv v1, v0
 
   # Layer 3 -> Out
-  mulmv v1, v26, v1 # MULMV v1=(v26:v28)*v1
+  mulmv v1, m3, v1 # MULMV v1=m3*v1
   lv v30, gp, b3-data
   addv v1, v1, v30
   # ReLu
