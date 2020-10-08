@@ -17,7 +17,10 @@ module bram #(
 
    reg [WORD_BYTES-1:0][7:0]    mem[0:RAM_SIZE-1];
 
-	initial begin
+   initial begin
+      for(int i = 0; i < (1 << (`BRAM_WIDTH - 2)); i++) begin
+         mem[i] = 0;
+      end
      /*
       * # This program tests BRAM and MMIO transfers
       * 0: ADDI x14, x0, -1   # 0xFFFFFFFF - UART TX MMIO
