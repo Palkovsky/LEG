@@ -525,11 +525,11 @@ module execute (
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BGE: if ($signed(X_rs1) > $signed(X_rs2)) begin
+             `BGE: if ($signed(X_rs1) >= $signed(X_rs2)) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end
-             `BGEU: if (X_rs1 > X_rs2) begin
+             `BGEU: if (X_rs1 >= X_rs2) begin
                 o_new_pc <= r_alu_result;
                 o_pc_change <= 1;
              end

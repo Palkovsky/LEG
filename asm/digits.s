@@ -23,11 +23,38 @@ start:
   lv v3, t1, b2-data_1
   lv v4, t1, b3-data_1
 
-  # Load the input vector
-  lv v5, t1, in_0-data_1
-  lv v6, t1, in_1-data_1
-  lv v7, t1, in_2-data_1
-  lv v8, t1, in_3-data_1
+  # Load scale and mean vectors
+  lv v20, t1, s0-data_1
+  lv v21, t1, s1-data_1
+  lv v22, t1, s2-data_1
+  lv v23, t1, s3-data_1
+
+  lv v24, t1, m0-data_1
+  lv v25, t1, m1-data_1
+  lv v26, t1, m2-data_1
+  lv v27, t1, m3-data_1
+
+
+  # Load and preprocess input vectors
+  addi a0, t1, in_img-data_1
+  jal unpack
+  addv v10, v10, v24
+  mulv v5, v10, v20
+
+  addi a0, t1, in_img - data_1 + 16
+  jal unpack
+  addv v10, v10, v25
+  mulv v6, v10, v21
+
+  addi a0, t1, in_img - data_1 + 32
+  jal unpack
+  addv v10, v10, v26
+  mulv v7, v10, v22
+
+  addi a0, t1, in_img - data_1 + 48
+  jal unpack
+  addv v10, v10, v27
+  mulv v8, v10, v23
 
   # Apply layer 0
   mulmv v10, m0, v5
@@ -76,12 +103,13 @@ start:
   ret
 
 check_result:
-  sv v10, gp, res_vec - data
-  mv t4, zero                 # t4 <- loop counter
-  addi t5, zero, -1           # t5 <- maximal element
-  mv a0, zero                 # a0 <- maximal index
-  addi a2, zero, 10           # a2 <- element count of output vector
-  addi a3, gp, res_vec - data # a3 <- output vector pointer
+  addi sp, sp, -32   # allocate space for result vector
+  sv v10, sp, 0
+  mv t4, zero        # t4 <- loop counter
+  addi t5, zero, -1  # t5 <- maximal element
+  mv a0, zero        # a0 <- maximal index
+  addi a2, zero, 10  # a2 <- element count of output vector
+  mv a3, sp          # a3 <- output vector pointer
 
 res_loop:
   bge t4, a2, res_ret
@@ -96,13 +124,39 @@ res_skip:
   j res_loop
 
 res_ret:
+  addi sp, sp, 32
   ret
+
+
+# a0 = input bytes pointer
+# returns the loaded vector in v10
+unpack:
+  addi sp, sp, -32   # reserve space for result vector
+  mv a1, sp
+  mv t2, zero        # t2 <- loop counter
+  addi t3, zero, 16  # t3 <- loop limit
+
+unpack_loop:
+  bge t2, t3, unpack_ret
+
+  lbu t4, a0, 0
+  slli t4, t4, 3
+  sh t4, a1, 0
+
+  addi t2, t2, 1
+  addi a0, a0, 1
+  addi a1, a1, 2
+  j unpack_loop
+
+unpack_ret:
+  lv v10, sp, 0
+  addi sp, sp, 32
+  ret
+
 
 org 0x2000
 data:
 
-res_vec:
-dat 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000
 l0_0:
 dat 0xfe9901e3, 0x026bfbb9, 0xfe380533, 0x0236ffe0, 0xfcc4fe6a, 0x004bfd05, 0xfddcfdee, 0xfe3a0067
 dat 0x0215fec2, 0xff70fd7b, 0x02b3ff88, 0xfdcf024e, 0x003efdff, 0xfde2fa79, 0x00bd03ba, 0xfe0bfcd9
@@ -232,11 +286,24 @@ dat 0xfd4bffa6, 0x01adff40, 0xfefe01b0, 0xfb78fb64, 0x00c2021e, 0xfb9b0fbf, 0xff
 b3:
 dat 0xf982f9d5, 0x0a9c0358, 0xf6d5f63d, 0x06a0fe68, 0x06130a8c, 0x00000000, 0x00000000, 0x00000000
 
-in_0:
-dat 0xfd520000, 0x0231ffa8, 0x0b9b07c0, 0xff00fcb9, 0xfd83ff87, 0xf7fe0557, 0x0a58f72b, 0xfef50058
-in_1:
-dat 0xfa2effa5, 0xf65bf37b, 0x094af965, 0xff160085, 0xf9b8ffbc, 0xf6b9f440, 0x0a26fd7e, 0xff9f017b
-in_2:
-dat 0xfa9f0000, 0x0791f64d, 0x05cd07af, 0x00000b84, 0xfbc0ff82, 0xfe79f794, 0xf46d0817, 0xff4af99d
-in_3:
-dat 0xfcc5ffb7, 0x054cf55b, 0xf461fc5a, 0xfe52f9f1, 0xfd9bffd0, 0x037f0243, 0xf6d4ecd9, 0xfe6ffbf4
+in_img:
+dat 0xbf000000, 0x00004fcf, 0xaf000000, 0x00008fff, 0xef2f0000, 0x00005fff, 0xffef6f00, 0x00001fff
+dat 0xff0f0000, 0x00002fff, 0xff0f0000, 0x00005fff, 0xff0f0000, 0x00005fff, 0xaf000000, 0x00009fff
+
+m0:
+dat 0xffd90000, 0xfa15fd66, 0xfd1cfa13, 0xffefff52, 0xff01ffff, 0xfa03facf, 0xfbe9fadc, 0xfff2ff14
+m1:
+dat 0xfeb30000, 0xfc81fb0c, 0xfc19fc73, 0xfffaff1b, 0xfec40000, 0xfb97fb74, 0xfc39fb09, 0x0000fed7
+m2:
+dat 0xfed50000, 0xfb77fc2b, 0xfba1fad9, 0x0000fe8c, 0xff35ffff, 0xfc63fc8f, 0xfbe2fc2a, 0xfffdfe46
+m3:
+dat 0xffa6ffff, 0xfb3bfc3f, 0xfb9ffb4b, 0xffe6fe23, 0xffdc0000, 0xf9f5fd39, 0xfc9efa18, 0xffd1fef7
+
+s0:
+dat 0x8d220800, 0x1e221aed, 0x16981ddd, 0x7b6c267f, 0x280f4ee1, 0x2031179e, 0x15271ac5, 0x9aa623b3
+s1:
+dat 0x23cd04e5, 0x16111680, 0x14a914bb, 0x23ec2747, 0x28b1fef0, 0x15c414ad, 0x15cd14d0, 0x9c0d22bb
+s2:
+dat 0x24ca0800, 0x146d143e, 0x15cf1594, 0x08002432, 0x2af071e0, 0x13e11395, 0x167b1474, 0xa0921d90
+s3:
+dat 0x495372f1, 0x187f16af, 0x153b1826, 0x82111a07, 0x890a3390, 0x1d441917, 0x15b319f3, 0x44d51f4d
