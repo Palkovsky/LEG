@@ -1,9 +1,5 @@
-org 0x200
+  org 0x200
 start:
-  addi sp, sp, -8
-  sw gp, sp, 0
-  sw ra, sp, 4
-
   # gp=0x2000
   lui gp, 2
   # Load matrices and bias vectors
@@ -34,28 +30,59 @@ start:
   lv v26, t1, m2-data_1
   lv v27, t1, m3-data_1
 
+  # ========================= UART READ
+uart_start:
+  # Put 0xCC on hex display.
+  addi a0, zero, 204
+  sb a0, zero, -16
 
+  addi a0, zero, 0
+  addi a1, zero, 16
+  addi t2, zero, in_img
+uart_loop:
+  lbu a2, zero, -2               # Read word from UART
+  lbu a3, zero, -2
+  lbu a4, zero, -2
+  lbu a5, zero, -2
+
+  slli a2, a2, 24                # Combine bytes into single reg
+  slli a3, a3, 16
+  slli a4, a4, 8
+  add a2, a2, a3
+  add a2, a2, a4
+  add a2, a2, a5
+  sw a2, t2, 0
+
+  addi a0, a0, 1                # Increment counters
+  addi t2, t2, 4
+  bltu a0, a1, uart_loop
+
+  addi a0, zero, 0               # Put 0x00 on hex display
+  sb a0, zero, -16
+
+  # ========================= DATA LOAD
   # Load and preprocess input vectors
-  addi a0, t1, in_img-data_1
+  addi a0, zero, in_img
   jal unpack
   addv v10, v10, v24
   mulv v5, v10, v20
 
-  addi a0, t1, in_img - data_1 + 16
+  addi a0, zero, in_img + 16
   jal unpack
   addv v10, v10, v25
   mulv v6, v10, v21
 
-  addi a0, t1, in_img - data_1 + 32
+  addi a0, zero, in_img + 32
   jal unpack
   addv v10, v10, v26
   mulv v7, v10, v22
 
-  addi a0, t1, in_img - data_1 + 48
+  addi a0, zero, in_img + 48
   jal unpack
   addv v10, v10, v27
   mulv v8, v10, v23
 
+  # ========================= FEED FORWARD
   # Apply layer 0
   mulmv v10, m0, v5
   mulmv v11, m1, v6
@@ -92,15 +119,11 @@ start:
 
   jal check_result
 
-  # Write predicted digit to hex display
-  # addi t1, zero, -16
-
+  # Write predicted digit to hex display and UART
   sb a0, zero, -16
+  sb a0, zero, -1
 
-  lw gp, sp, 0
-  lw ra, sp, 4
-  addi sp, sp, 8
-  ret
+  j uart_start
 
 check_result:
   addi sp, sp, -32   # allocate space for result vector
@@ -153,6 +176,9 @@ unpack_ret:
   addi sp, sp, 32
   ret
 
+in_img:
+dat 0, 0, 0, 0, 0, 0, 0, 0
+dat 0, 0, 0, 0, 0, 0, 0, 0
 
 org 0x2000
 data:
@@ -285,10 +311,6 @@ dat 0xfe1cfc7b, 0xfd5b02d1, 0x00d101cf, 0xf7870484, 0xfb85fd30, 0x00e9fd48, 0x00
 dat 0xfd4bffa6, 0x01adff40, 0xfefe01b0, 0xfb78fb64, 0x00c2021e, 0xfb9b0fbf, 0xffd8fce6, 0xfe630b2a
 b3:
 dat 0xf982f9d5, 0x0a9c0358, 0xf6d5f63d, 0x06a0fe68, 0x06130a8c, 0x00000000, 0x00000000, 0x00000000
-
-in_img:
-dat 0xbf000000, 0x00004fcf, 0xaf000000, 0x00008fff, 0xef2f0000, 0x00005fff, 0xffef6f00, 0x00001fff
-dat 0xff0f0000, 0x00002fff, 0xff0f0000, 0x00005fff, 0xff0f0000, 0x00005fff, 0xaf000000, 0x00009fff
 
 m0:
 dat 0xffd90000, 0xfa15fd66, 0xfd1cfa13, 0xffefff52, 0xff01ffff, 0xfa03facf, 0xfbe9fadc, 0xfff2ff14
